@@ -7,7 +7,7 @@
 -`GWAS summary`
 
 
-## Options
+## Options for RV_meta.R
 
 - `--num_cohorts` : number of cohorts
 - `--chr` : chrmosome number
