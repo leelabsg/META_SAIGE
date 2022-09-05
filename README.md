@@ -1,8 +1,10 @@
 # Rare Variant Meta-Analysis
 
 ## Input Files
--LD matrix - can be obtained from SAIGE 'step3_LDmat.R'
--GWAS summary
+
+-`LD matrix` : can be obtained from SAIGE `step3_LDmat.R`
+
+-`GWAS summary`
 
 
 ## Options
