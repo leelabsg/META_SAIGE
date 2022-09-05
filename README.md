@@ -1,11 +1,11 @@
-#Rare Variant Meta-Analysis
+# Rare Variant Meta-Analysis
 
-##Input Files
+## Input Files
 -LD matrix - can be obtained from SAIGE 'step3_LDmat.R'
 -GWAS summary
 
 
-##Options
+## Options
 
 - '--num_cohorts' : number of cohorts
 - '--chr' : chrmosome number
