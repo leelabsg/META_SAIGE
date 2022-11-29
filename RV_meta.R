@@ -60,6 +60,7 @@ load_cohort <- function(cohort, gene, SNPinfo){
     ############Loading Cohort1 LD and GWAS summary###############
     SNP_info_gene = SNPinfo[which(SNPinfo$Set == gene)]
 
+    cat(paste0('Loading', argv$gwas_path[cohort]), '\n')
     gwas = fread(argv$gwas_path[cohort])
     n.vec <<- c(n.vec, gwas$N_case[1] + gwas$N_ctrl[1])
 
