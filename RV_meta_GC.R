@@ -24,7 +24,7 @@ library(data.table, quietly = TRUE)
 library(dplyr, quietly = TRUE)
 
 
-source('/media/leelabsg-storage0/eunjae/Meta-code/RV_meta_dev/Lib_v3_GC.R')
+source('./Lib_GC.R')
 
 
 
