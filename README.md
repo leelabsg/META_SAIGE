@@ -19,7 +19,7 @@
 -`Single-variant level GWAS summary for collapsed variants` : can be obtained from SAIGE-GENE+ with `--is_single_in_groupTest=TRUE` option (only for Cohort Specific collapsing)
 
 
-## Options
+## Options for RV_meta.R
 
 - `--num_cohorts` : number of cohorts
 - `--chr` : chrmosome number
