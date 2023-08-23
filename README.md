@@ -1,11 +1,12 @@
-# Rare Variant Meta-Analysis
+# Meta-SAIGE for Rare Variant Meta-Analysis
 
-# Dependencies (built with R3.6.3)
+## Dependencies (built with R3.6.3)
 -`argparser`
 -`data.table`
 -`dplyr`
 -`SKAT`
 -`SPAtest`
+-`Matrix`
 
 
 ## Input Files
@@ -18,9 +19,17 @@
 
 -`Single-variant level GWAS summary for collapsed variants` : can be obtained from SAIGE-GENE+ with `--is_single_in_groupTest=TRUE` option (only for Cohort Specific collapsing)
 
+## Installation
 
-## Options for RV_meta.R
+'''
+library(remotes)
+install_github('git@github.com:leelabsg/SAIGE_META.git')
+library(MetaSAIGE)
+'''
 
+## Command Line Usage
+
+### GC-based Method
 - `--num_cohorts` : number of cohorts
 - `--chr` : chrmosome number
 - `--info_file_path` : path to the marker_info.txt file generated from SAIGE 'step3_LDmat.R'. Need to specify marker_info.txt file from each and every cohort delimited by white-space (`' '`)
@@ -28,8 +37,8 @@
 - `--gwas_path` : path to the GWAS summary. Need to specify GWAS summary file from each and every cohort delimited by white-space (`' '`)
 - `output_prefix`: directory for output
 
-`Only for Cohort Specific collapsing meta-analysis`
 
+### Cohort-Specific Collapsing Method
 - `--SingleAssociate_path` : Single variant level GWAS summary. It is needed for the GWAS summary of cohort-specifically collapsed variants (ex. test_input/cohort1/gene_based_summary/cohort1_step2_gene_res_7.txt.singleAssoc.txt)
 - `--collist_path` : List of cohort specifically collapsed variants. (ex. test_input/cohort1/gene_based_summary/cohort1_step2_gene_res_7.txt.markerList.txt)
 - `--groupfile` : Group file for the meta-analysis. Note that it is in a different format than SAIGE-GENE+. (It should be implemented internally to take in SAIGE-GENE+ groupfile format)
@@ -37,4 +46,10 @@
 - `--maxMAF` : Max MAF for of the analysis
 - `--Is.Hybrid` : Hybrid option uses chisq test for the collapsed variants and use ER or SPA to produce p-value.
 
-example command could be found in 'test_run_GC.sh' for GC-based meta-analysis and 'test_run_CohortSPecific.sh' for Cohort-specifically collapsing meta-analysis
+example commands could be found in 'test_script'
+
+## Rscript Usage
+
+
+
+
