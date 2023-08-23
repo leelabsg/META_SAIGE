@@ -21,11 +21,11 @@
 
 ## Installation
 
-'''
+```
 library(remotes)
 install_github('git@github.com:leelabsg/SAIGE_META.git')
 library(MetaSAIGE)
-'''
+```
 
 ## Command Line Usage
 
@@ -50,6 +50,9 @@ example commands could be found in 'test_script'
 
 ## Rscript Usage
 
+### Loading Input Files
+```MetaSAIGE_InputObj <- Get_MetaSAIGE_Input(n.cohorts, chr, gwas_path, info_path, gene_file_prefix)
+```
 
 
 
