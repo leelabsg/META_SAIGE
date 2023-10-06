@@ -51,15 +51,6 @@ res_pval_0.25_adj <- c()
 res_pval_0.50_adj <- c()
 res_pval_1.00_adj <- c()
 
-res_pval_noadj <- c()
-res_pval_0.00_noadj <- c()
-res_pval_0.01_noadj <- c()
-res_pval_0.04_noadj <- c()
-res_pval_0.09_noadj <- c()
-res_pval_0.25_noadj <- c()
-res_pval_0.50_noadj <- c()
-res_pval_1.00_noadj <- c()
-
 #### Main Analysis ####
 all_cohorts <- load_all_cohorts(argv$num_cohorts, argv$gwas_path)
 gwas_summary <- all_cohorts[[1]]

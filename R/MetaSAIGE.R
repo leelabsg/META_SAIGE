@@ -95,7 +95,7 @@ Run_MetaSAIGE <- function(MetaSAIGE_InputObj, col_co, output_path){
 
     #Analysis begins
     for (gene in genes){
-        # tryCatch({
+        tryCatch({
             start <- Sys.time()
             cat('Analyzing chr ', chr, ' ', gene, ' ....\n')
             
@@ -149,9 +149,9 @@ Run_MetaSAIGE <- function(MetaSAIGE_InputObj, col_co, output_path){
 
             write.table(out, output_path, row.names = F, col.names = T, quote = F)
         
-        # }, error = function(e){
-        #     cat('Error in ', gene, '\n')
-        # })
+          }, error = function(e){
+             cat('Error in ', gene, '\n')
+         })
     }
 
 

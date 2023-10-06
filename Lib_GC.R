@@ -499,13 +499,31 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 	if(length(S_M_C)==1){
 		test.stat<-S_M_C[1]^2/Phi_C[1,1]
 		p.value<-pchisq(test.stat, df=1, lower.tail = FALSE)
+
+		#Adding the pvalue for ultra-rare variant
+		if(length(idx_col)> 0){
+			test.stat<-(Collapse_Matrix[1,] %*% S_M)^2/(Collapse_Matrix[1,] %*% obj$Info_ALL$Var_ALL.Adj)
+			p.value.UR <- pchisq(test.stat, df=1, lower.tail = FALSE)
+		} else{
+			p.value.UR <- NA
+		}
+
 		out_Meta<-list(p.value=p.value, test.stat=test.stat) 
 	} else {
-		# Bug fix (2022-07-24, SLEE). previously collapsing wasn't applied. 
+		# Bug fix (2022-07-24, SLEE). previously collapsing wasn't applied.
+		#Adding the pvalue for ultra-rare variant
+		if(length(idx_col)> 0){
+			test.stat<-(Collapse_Matrix[1,] %*% S_M)^2/(Collapse_Matrix[1,] %*% obj$Info_ALL$Var_ALL.Adj)
+			p.value.UR <-pchisq(test.stat, df=1, lower.tail = FALSE)
+		} else{
+			p.value.UR <- NA
+		}
+
 		out_Meta<-SKAT:::SKAT_META_Optimal(Score=cbind(S_M_C), Phi=Phi_C, r.all=r.all, Score.Resampling=NULL)
 	}
 	out_Meta$nSNP = length(S_M_C)
 	if(IsGet_Info_ALL){
+		out_Meta$p.value.UR <- p.value.UR
 		out_Meta$Score = cbind(S_M_C)
 		out_Meta$Phi = Phi_C
 		out_Meta$r.all = r.all
