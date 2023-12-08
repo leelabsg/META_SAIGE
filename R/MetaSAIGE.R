@@ -305,7 +305,7 @@ Flip_Genotypes<-function(SMat, MAC, n1, idx_flip){
 #	n.vec: sample sizes (vector)
 
 #Get ancestry specific collapsed SMat and Info
-Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, n.vec, IsExistSNV.vec, n.cohort_tmp, ances, Col_Cut = 10){
+Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, n.vec, IsExistSNV.vec, n.cohort_tmp, ances, weights.beta, Col_Cut = 10){
 	SnpID.all<-NULL
 	n_case <- 0 ; n_ctrl <- 0
 	for(i in 1:n.cohort_tmp){
@@ -384,6 +384,94 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 		SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
 	}
 
+	#Apply GC based meta-analysis
+	#Variants that need GC-based variance estimation (Eunjae Park 2022-12-20)
+	Info_ALL$pval.GWAS_NA <- pchisq(Info_ALL$S_ALL^2/Info_ALL$Var_ALL_Adj, df = 1, lower.tail = F)
+	Info_ALL$pval.GWAS_SPA <- pchisq(Info_ALL$S_ALL^2/Info_ALL$Var_ALL_NoAdj, df = 1, lower.tail = F)
+
+	Info_ALL$pval.GC <-NA
+	Info_ALL$pval.fisher <- NA
+	Info_ALL$MAC_Case1 <-NA
+	Info_ALL$MAC_Case2 <-NA
+	Info_ALL$MAC_Control1 <- NA
+	Info_ALL$MAC_Control2 <- NA
+	for (i in 1:nrow(Info_ALL)){
+		GC_input <- NULL
+
+		for(j in 1:n.cohort_tmp){
+			if(IsExistSNV.vec[j] == 0){
+				next
+			}
+			cohort_idx = which(Info.list_tmp[[j]]$SNPID == Info_ALL$SNPID[i])
+			cohort_info = as.data.frame(Info.list_tmp[[j]][cohort_idx, ])
+
+			GC_input = rbind(GC_input, cohort_info)
+
+		}
+
+		GC_input$signed_pval <- sign(GC_input$BETA) * as.numeric(GC_input$p.value)
+
+		N_hom <- 2 * (GC_input$N_case_hom + GC_input$N_ctrl_hom)
+		N_het <- GC_input$N_case_het + GC_input$N_ctrl_het
+		GCmat <- matrix(c(N_hom, N_het), ncol=2)
+		CCsize.GC <- matrix(c(GC_input$N_case, GC_input$N_ctrl), ncol=2)
+
+
+		ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
+		nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
+
+		# test <- rbind(ncase, nctrl)
+		#run fisher exact test
+		# fisher <- chisq.test(test)
+		
+		Adj_pval = SPAmeta(pvalue.GC = GC_input$signed_pval, GCmat = GCmat, CCsize.GC = CCsize.GC, Cutoff.GC = 0)
+		# Info_ALL$pval.fisher[i] <- fisher$p.value
+		Info_ALL$pval.GC[i] <- abs(Adj_pval)
+		
+		Info_ALL$MAC_Case1[i] = ncase[1]
+		Info_ALL$MAC_Case2[i] = ncase[2]
+		Info_ALL$MAC_Control1[i] = nctrl[1]
+		Info_ALL$MAC_Control2[i] = nctrl[2]		
+
+	}
+
+	# Modified by SLEE
+	Info_ALL$pval.Adj <- Info_ALL$pval.GWAS_SPA
+	# Output adjusted p-values
+	pval_SPA_idx <- which(Info_ALL$pval.GWAS_SPA < GC_cutoff)
+	Info_ALL$pval.Adj[pval_SPA_idx] <- pmax(Info_ALL$pval.GWAS_SPA[pval_SPA_idx], Info_ALL$pval.GC[pval_SPA_idx])
+	
+	# # Modified by SLEE
+	# fisher_force_idx <- which(Info_ALL$pval.fisher > 0.99)
+	# Info_ALL$pval.fisher[fisher_force_idx] <- 0.99
+
+	# fisher_idx <- intersect(which(Info_ALL$MAC_ALL <= 10), which(Info_ALL$pval.fisher <= 0.99))
+
+	# if(length(fisher_idx) > 0){
+	#   Info_ALL$pval.Adj[fisher_idx] <- Info_ALL$pval.fisher[fisher_idx]
+	# }
+
+	
+	Info_ALL$Var_ALL.Adj<- as.double(Info_ALL$S_ALL^2 / qchisq(Info_ALL$pval.Adj, df = 1, lower.tail = FALSE))
+
+	#MAF weighting
+	n_all = sum(n.vec)
+	
+	MAC = Info_ALL$MAC_ALL
+	MAF = MAC / n_all / 2
+
+	weights = SKAT:::Beta.Weights(MAF, weights.beta)
+	
+	Info_ALL$S_ALL = Info_ALL$S_ALL * weights
+	Info_ALL$Var_ALL_Adj = Info_ALL$Var_ALL.Adj * weights^2
+	Info_ALL$Var_ALL_NoAdj = Info_ALL$Var_ALL_NoAdj * weights^2
+
+	#Addressing Correlation for the collapsing variants
+	Cor = Get_Cor(SMat_All, MAF, n_all)
+	SD = sqrt(Info_ALL$Var_ALL_Adj)
+	Phi = t(t(Cor * SD) * SD)
+
+
 	#Run ancestry specific collapsing
 	idx_col <- which(Info_ALL$MAC_ALL <=Col_Cut)
 	
@@ -398,7 +486,7 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 			MinorAllele = as.character(c('Y', as.vector(Info_ALL$MinorAllele_ALL[-idx_col]))),
 			S = as.vector(Collapse_Matrix %*% Info_ALL$S_ALL),
 			MAC = as.vector(Collapse_Matrix %*% Info_ALL$MAC_ALL),
-			Var = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_Adj),
+			Var = as.vector(diag((Collapse_Matrix %*% Phi) %*% t(Collapse_Matrix))),
 			Var_NoAdj = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_NoAdj),
 			N_case = n_case,
 			N_ctrl = n_ctrl,
@@ -590,14 +678,14 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 		GC_input$signed_pval <- sign(GC_input$BETA) * as.numeric(GC_input$p.value)
 
-		N_hom <- 2 * (GC_input$N_case_hom + GC_input$N_ctrl_hom)
+		N_hom <- GC_input$N_case_hom + GC_input$N_ctrl_hom
 		N_het <- GC_input$N_case_het + GC_input$N_ctrl_het
 		GCmat <- matrix(c(N_hom, N_het), ncol=2)
 		CCsize.GC <- matrix(c(GC_input$N_case, GC_input$N_ctrl), ncol=2)
 
 
-		ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
-		nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
+		# ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
+		# nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
 
 		# test <- rbind(ncase, nctrl)
 		#run fisher exact test
@@ -644,10 +732,46 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
 	r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = TRUE, ancestry = NULL){
 	
-	obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec, n.cohort, GC_cutoff) 
+	if(is.null(ancestry)){
+		obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec, n.cohort, GC_cutoff)
 
+		n_all = sum(n.vec)
+		
+		# Number of SNPs
+		m = length(obj$Info_ALL$S_ALL)
+		nSNP = m
+		
+		MAC = obj$Info_ALL$MAC_ALL
+		MAF = MAC / n_all/2
+		
+		#Bug fix (2022-07-18) Get_Cor input argument n_all was added.
+		Cor_M = Get_Cor(obj$SMat_All, MAF, n_all)
+		
+		S_M = obj$Info_ALL$S_ALL
+		SD_M = sqrt(obj$Info_ALL$Var_ALL.Adj)
+		Phi = t(t(Cor_M * SD_M) * SD_M)
+		
+		OUT_Meta<-Applying_Weighting(S_M, Phi, MAF=MAF, weights.beta=weights.beta)
+
+		# Collapsing
+		idx_col<-which(MAC <=Col_Cut)
+		Collapse_Matrix=NULL
+		
+
+		if(length(idx_col)> 0){
+			SNP_list<-list(); SNP_list[[1]]<-idx_col
+			#nSNP1<<-nSNP; SNP_list1<<-SNP_list
+			Collapse_Matrix = Get_Collabsing(nSNP, SNP_list)
+			S_M_C = Collapse_Matrix %*% OUT_Meta$S_w
+			Phi_C = (Collapse_Matrix %*% OUT_Meta$Phi_w) %*% t(Collapse_Matrix)
+
+		} else {
+			S_M_C = OUT_Meta$S_w
+			Phi_C = OUT_Meta$Phi_w
+		}
+	}
 	# Get ancestry specific obj for each ancestry and URV
-	if (!is.null(ancestry)){
+	else if (!is.null(ancestry)){
 		SMat.list_collapsed = list()
 		Info.list_collapsed = list()
 		n.vec_collapsed = c()
@@ -662,7 +786,7 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 			IsExistSNV.vec_tmp = IsExistSNV.vec[idxs]
 			n.cohort_tmp = length(idxs)
 
-			obj_collapsed = Get_AncestrySpecific_META_Data_OneSet(SMat.list_tmp, Info.list_tmp, n.vec_tmp, IsExistSNV.vec_tmp, n.cohort_tmp, ances, Col_Cut = 10)
+			obj_collapsed = Get_AncestrySpecific_META_Data_OneSet(SMat.list_tmp, Info.list_tmp, n.vec_tmp, IsExistSNV.vec_tmp, n.cohort_tmp, ances,  weights.beta = weights.beta, Col_Cut = Col_Cut)
 			SMat.list_collapsed[[ances]] = obj_collapsed$Collapsed_SMat_ALL
 			Info.list_collapsed[[ances]] = obj_collapsed$Collapsed_Info_ALL
 
@@ -670,43 +794,26 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 			IsExistSNV.vec_collapsed = c(IsExistSNV.vec_collapsed, as.numeric(nrow(obj_collapsed$Collapsed_Info_ALL) > 0))
 		}
 		
-		obj = Get_META_Data_OneSet(SMat.list_collapsed, Info.list_collapsed, n.vec_collapsed, IsExistSNV.vec_collapsed, n.cohort = length(unique(ancestry)), GC_cutoff) 
+		obj = Get_META_Data_OneSet(SMat.list_collapsed, Info.list_collapsed, n.vec_collapsed, IsExistSNV.vec_collapsed, n.cohort = length(unique(ancestry)), GC_cutoff = GC_cutoff) 
+
+		
+		n_all = sum(n.vec)
+		
+		# Number of SNPs
+		m = length(obj$Info_ALL$S_ALL)
+		nSNP = m
+		
+		MAC = obj$Info_ALL$MAC_ALL
+		MAF = MAC / n_all/2
+		
+		#Bug fix (2022-07-18) Get_Cor input argument n_all was added.
+		Cor_M = Get_Cor(obj$SMat_All, MAF, n_all)
+		SD_M = sqrt(obj$Info_ALL$Var_ALL.Adj)
+
+		S_M_C = obj$Info_ALL$S_ALL
+		Phi_C = t(t(Cor_M * SD_M) * SD_M)
 	}
 
-	n_all = sum(n.vec)
-	
-	# Number of SNPs
-	m = length(obj$Info_ALL$S_ALL)
-	nSNP = m
-	
-	MAC = obj$Info_ALL$MAC_ALL
-	MAF = MAC / n_all/2
-	
-	#Bug fix (2022-07-18) Get_Cor input argument n_all was added.
-	Cor_M = Get_Cor(obj$SMat_All, MAF, n_all)
-	
-	S_M = obj$Info_ALL$S_ALL
-	SD_M = sqrt(obj$Info_ALL$Var_ALL.Adj)
-	Phi = t(t(Cor_M * SD_M) * SD_M)
-	
-	OUT_Meta<-Applying_Weighting(S_M, Phi, MAF=MAF, weights.beta=weights.beta)
-
-	# Collapsing
-	idx_col<-which(MAC <=Col_Cut)
-	Collapse_Matrix=NULL
-	
-
-	if(length(idx_col)> 0){
-		SNP_list<-list(); SNP_list[[1]]<-idx_col
-		#nSNP1<<-nSNP; SNP_list1<<-SNP_list
-		Collapse_Matrix = Get_Collabsing(nSNP, SNP_list)
-		S_M_C = Collapse_Matrix %*% OUT_Meta$S_w
-		Phi_C = (Collapse_Matrix %*% OUT_Meta$Phi_w) %*% t(Collapse_Matrix)
-
-	} else {
-		S_M_C = OUT_Meta$S_w
-		Phi_C = OUT_Meta$Phi_w
-	}
 
 
 	# Added (2033-07-29)
