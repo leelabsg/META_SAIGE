@@ -411,14 +411,14 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 
 		GC_input$signed_pval <- sign(GC_input$BETA) * as.numeric(GC_input$p.value)
 
-		N_hom <- 2 * (GC_input$N_case_hom + GC_input$N_ctrl_hom)
+		N_hom <- GC_input$N_case_hom + GC_input$N_ctrl_hom
 		N_het <- GC_input$N_case_het + GC_input$N_ctrl_het
 		GCmat <- matrix(c(N_hom, N_het), ncol=2)
 		CCsize.GC <- matrix(c(GC_input$N_case, GC_input$N_ctrl), ncol=2)
 
 
-		ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
-		nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
+		# ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
+		# nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
 
 		# test <- rbind(ncase, nctrl)
 		#run fisher exact test
@@ -428,10 +428,10 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 		# Info_ALL$pval.fisher[i] <- fisher$p.value
 		Info_ALL$pval.GC[i] <- abs(Adj_pval)
 		
-		Info_ALL$MAC_Case1[i] = ncase[1]
-		Info_ALL$MAC_Case2[i] = ncase[2]
-		Info_ALL$MAC_Control1[i] = nctrl[1]
-		Info_ALL$MAC_Control2[i] = nctrl[2]		
+		# Info_ALL$MAC_Case1[i] = ncase[1]
+		# Info_ALL$MAC_Case2[i] = ncase[2]
+		# Info_ALL$MAC_Control1[i] = nctrl[1]
+		# Info_ALL$MAC_Control2[i] = nctrl[2]		
 
 	}
 

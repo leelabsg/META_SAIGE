@@ -295,10 +295,10 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 		# Info_ALL$pval.fisher[i] <- fisher$p.value
 		Info_ALL$pval.GC[i] <- abs(Adj_pval)
 		
-		Info_ALL$MAC_Case1[i] = ncase[1]
-		Info_ALL$MAC_Case2[i] = ncase[2]
-		Info_ALL$MAC_Control1[i] = nctrl[1]
-		Info_ALL$MAC_Control2[i] = nctrl[2]		
+		# Info_ALL$MAC_Case1[i] = ncase[1]
+		# Info_ALL$MAC_Case2[i] = ncase[2]
+		# Info_ALL$MAC_Control1[i] = nctrl[1]
+		# Info_ALL$MAC_Control2[i] = nctrl[2]		
 
 	}
 
