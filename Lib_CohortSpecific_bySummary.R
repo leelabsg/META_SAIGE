@@ -278,14 +278,14 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 		GC_input$signed_pval <- sign(GC_input$BETA) * as.numeric(GC_input$p.value)
 
-		N_hom <- 2 * (GC_input$N_case_hom + GC_input$N_ctrl_hom)
+		N_hom <- GC_input$N_case_hom + GC_input$N_ctrl_hom
 		N_het <- GC_input$N_case_het + GC_input$N_ctrl_het
 		GCmat <- matrix(c(N_hom, N_het), ncol=2)
 		CCsize.GC <- matrix(c(GC_input$N_case, GC_input$N_ctrl), ncol=2)
 
 
-		ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
-		nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
+		# ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
+		# nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
 
 		# test <- rbind(ncase, nctrl)
 		# #run fisher exact test
