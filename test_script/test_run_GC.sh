@@ -1,6 +1,7 @@
 #!/bin/bash
 Rscript RV_meta_GC.R \
     --num_cohorts 2 \
+    --trait_type binary \
     --chr 7 \
     --col_co 10 \
     --info_file_path test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt \

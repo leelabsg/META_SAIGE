@@ -7,19 +7,18 @@ library(argparser, quietly = TRUE)
 #Output prefix : 
 p <- arg_parser('Run Meta-Analysis using rare variants')
 p <- add_argument(p, '--num_cohorts', help = 'number of cohorts')
+p <- add_argument(p, '--trait_type', help = 'trait type. binary or continuous')
 p <- add_argument(p, '--chr', help = 'chromosome number')
 p <- add_argument(p, '--col_co', help = 'MAC cut off value for collapsing')
 p <- add_argument(p, '--info_file_path', help = 'LD matrix (GtG) marker information file path', nargs = Inf)
 p <- add_argument(p, '--gene_file_prefix', help = 'File name for sparse GtG file excluding gene name', nargs = Inf)
 p <- add_argument(p, '--gwas_path', help = 'path to GWAS summary', nargs = Inf)
-p <- add_argument(p, '--ancestry', help = 'ancestry identifier. any numbers starting from 1 could be used to identify ancestries (e.g. 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)', nargs = Inf)
 p <- add_argument(p, '--output_prefix', help = 'output prefix')
 
 argv <- parse_args(p)
 
 argv$num_cohorts <- as.numeric(argv$num_cohorts)
 argv$col_co <- as.numeric(argv$col_co)
-argv$ancestry <- as.numeric(argv$ancestry)
 
 library(SKAT, quietly = TRUE)
 library(data.table, quietly = TRUE)
@@ -27,6 +26,7 @@ library(dplyr, quietly = TRUE)
 
 
 source('./Lib_GC.R')
+
 
 
 #Loading the list of genes to analyze
@@ -62,7 +62,7 @@ res_pval_0.50_noadj <- c()
 res_pval_1.00_noadj <- c()
 
 #### Main Analysis ####
-all_cohorts <- load_all_cohorts(argv$num_cohorts, argv$gwas_path)
+all_cohorts <- load_all_cohorts(argv$num_cohorts, argv$gwas_path, argv$trait_type)
 gwas_summary <- all_cohorts[[1]]
 n_case.vec <- all_cohorts[[2]]
 n_ctrl.vec <- all_cohorts[[3]]
@@ -80,6 +80,7 @@ for(i in 1: argv$num_cohorts){
 }
 
 for (gene in genes){
+
     tryCatch({
         start <- Sys.time()
         cat('Analyzing chr ', argv$chr, ' ', gene, ' ....\n')
@@ -90,15 +91,15 @@ for (gene in genes){
         
         for (i in 1:argv$num_cohorts){
 
-            load_cohort(gwas_summary, i, gene, SNP_info[[i]], argv$gene_file_prefix)
+            load_cohort(gwas_summary, i, gene, SNP_info[[i]], argv$gene_file_prefix, argv$trait_type)
         }
         
 
         ###########Meta-analysis##################
         start_MetaOneSet <- Sys.time()
 
-        out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec,  n.cohort=argv$num_cohorts, Col_Cut = argv$col_co, ancestry = argv$ancestry)
-        print(out_adj)
+        out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec,  n.cohort=argv$num_cohorts, Col_Cut = argv$col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, trait_type = argv$trait_type)
+        # print(out_adj)
         end_MetaOneSet <- Sys.time()
         cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
 
