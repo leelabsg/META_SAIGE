@@ -13,12 +13,16 @@ p <- add_argument(p, '--col_co', help = 'MAC cut off value for collapsing')
 p <- add_argument(p, '--info_file_path', help = 'LD matrix (GtG) marker information file path', nargs = Inf)
 p <- add_argument(p, '--gene_file_prefix', help = 'File name for sparse GtG file excluding gene name', nargs = Inf)
 p <- add_argument(p, '--gwas_path', help = 'path to GWAS summary', nargs = Inf)
+p <- add_argument(p, '--ancestry', help = 'ancestry identifier. any numbers starting from 1 could be used to identify ancestries (e.g. 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)', nargs = Inf)
 p <- add_argument(p, '--output_prefix', help = 'output prefix')
+p <- add_argument(p, '--verbose', help = 'verbose', default = 'TRUE')
 
 argv <- parse_args(p)
 
 argv$num_cohorts <- as.numeric(argv$num_cohorts)
 argv$col_co <- as.numeric(argv$col_co)
+argv$ancestry <- as.numeric(argv$ancestry)
+
 
 library(SKAT, quietly = TRUE)
 library(data.table, quietly = TRUE)
@@ -98,7 +102,8 @@ for (gene in genes){
         ###########Meta-analysis##################
         start_MetaOneSet <- Sys.time()
 
-        out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec,  n.cohort=argv$num_cohorts, Col_Cut = argv$col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, trait_type = argv$trait_type)
+        out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=argv$num_cohorts,
+            Col_Cut = argv$col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = argv$ancestry, trait_type = argv$trait_type)
         # print(out_adj)
         end_MetaOneSet <- Sys.time()
         cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
@@ -130,12 +135,13 @@ for (gene in genes){
         end <- Sys.time()
         cat('Total time elapsed', end - start, '\n')
     
-        out <- data.frame(res_chr, res_gene, res_pval_adj, res_pval_0.00_adj, res_pval_0.01_adj, res_pval_0.04_adj, res_pval_0.09_adj, res_pval_0.25_adj, res_pval_0.50_adj, res_pval_1.00_adj)
-        head(out)
-        colnames(out)<- c('CHR', 'GENE', 'Pval', 'Pval_0.00', 'Pval_0.01', 'Pval_0.04', 'Pval_0.09', 'Pval_0.025', 'Pval_0.50', 'Pval_1.00')
+        if(argv$verbose == 'TRUE'){
+            out <- data.frame(res_chr, res_gene, res_pval_adj, res_pval_0.00_adj, res_pval_0.01_adj, res_pval_0.04_adj, res_pval_0.09_adj, res_pval_0.25_adj, res_pval_0.50_adj, res_pval_1.00_adj)
+            colnames(out)<- c('CHR', 'GENE', 'Pval', 'Pval_0.00', 'Pval_0.01', 'Pval_0.04', 'Pval_0.09', 'Pval_0.025', 'Pval_0.50', 'Pval_1.00')
 
-        outpath <- argv$output_prefix
-        write.table(out, outpath, row.names = F, col.names = T, quote = F)
+            outpath <- argv$output_prefix
+            write.table(out, outpath, row.names = F, col.names = T, quote = F)
+        }
     
     }, error = function(e){
         cat('Error in ', gene, '\n')
@@ -144,7 +150,6 @@ for (gene in genes){
 }
 
 out <- data.frame(res_chr, res_gene, res_pval_adj, res_pval_0.00_adj, res_pval_0.01_adj, res_pval_0.04_adj, res_pval_0.09_adj, res_pval_0.25_adj, res_pval_0.50_adj, res_pval_1.00_adj)
-head(out)
 colnames(out)<- c('CHR', 'GENE', 'Pval', 'Pval_0.00', 'Pval_0.01', 'Pval_0.04', 'Pval_0.09', 'Pval_0.025', 'Pval_0.50', 'Pval_1.00')
 
 outpath <- argv$output_prefix
