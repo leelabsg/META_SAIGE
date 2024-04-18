@@ -1,5 +1,5 @@
 #!/bin/bash
-Rscript RV_meta_GC.R \
+/usr/bin/time -v Rscript RV_meta_GC.R \
     --num_cohorts 2 \
     --trait_type binary \
     --chr 7 \

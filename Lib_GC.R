@@ -46,14 +46,6 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
                                                                                                 by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
                 merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
 
-                #### Using p.value.NA if higher than 0.05
-                idx<-which(merged$p.value.NA >= 0.05)
-
-                if(length(idx)> 0){
-                        merged$adj_var[idx]<-merged$var[idx]
-                }
-                ####
-
                 merged <- na.omit(merged)
 
                 if(nrow(merged) > 0){
@@ -311,7 +303,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
         # Get meta-analysis score (S_ALL) and GtG matrix
 
         if(trait_type == 'binary'){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), dims=c(n.all, n.all))
+                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
                 Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all)
                 , S_ALL=0, MAC_ALL=0, Var_ALL.GWAS_SPA=0, Var_ALL.GWAS_NA = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
@@ -441,7 +433,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
         } else if(trait_type == 'continuous'){
                 # Get meta-analysis score (S_ALL) and GtG matrix
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), dims=c(n.all, n.all))
+                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
                 Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all)
                 , S_ALL=0, MAC_ALL=0, Var_ALL=0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
@@ -528,7 +520,7 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, trait_type){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
         obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
-        n_all = sum(n.vec)
+		n_all = sum(n.vec)
 
         # Number of SNPs
         m = length(obj$Info_ALL$S_ALL)
@@ -545,10 +537,7 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 
 		Cor_S = Get_Cor_Sparse(obj$SMat_All, MAF, n_all)
 		Phi_1 = t(t(Cor_S$First * SD_M) * SD_M)
-		Phi_1[is.na(Phi_1)] <- 0
-
 		Phi_2_vec = Cor_S$Second_Vec * SD_M
-		Phi_2_vec[is.na(Phi_2_vec)] <- 0
 
         OUT_Meta<-Applying_Weighting(S_M, Phi_1, Phi_2_vec, MAF=MAF, weights.beta=weights.beta)
 
@@ -566,9 +555,11 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 				Phi_C_w2 = Collapse_Matrix %*% OUT_Meta$Phi_w2
 				Phi_C = Phi_C_w1 - Phi_C_w2 %*% t(Phi_C_w2)
 
+
         } else {
                 S_M_C = OUT_Meta$S_w
                 Phi_C = OUT_Meta$Phi_w1 - OUT_Meta$Phi_w2 %*% t(OUT_Meta$Phi_w2)
+	
         }
 
 
@@ -583,9 +574,11 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         } else {
                 # Bug fix (2022-07-24, SLEE). previously collapsing wasn't applied. 
                 out_Meta<-SKAT:::SKAT_META_Optimal(Score=cbind(S_M_C), Phi=Phi_C, r.all=r.all, Score.Resampling=NULL)
+		
         }
         out_Meta$nSNP = length(S_M_C)
         if(IsGet_Info_ALL){
+				out_Meta$Info_ALL = obj$Info_ALL
                 out_Meta$Score = cbind(S_M_C)
                 out_Meta$Phi = Phi_C
                 out_Meta$r.all = r.all

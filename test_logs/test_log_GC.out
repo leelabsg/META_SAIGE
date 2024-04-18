@@ -1,209 +1,35 @@
 Loadingtest_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt 
 Loadingtest_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt 
 Analyzing chr  7   AASS  ....
-elapsed time for Run_Meta_OneSet  8.121383 
-Total time elapsed 8.327481 
+elapsed time for Run_Meta_OneSet  7.149484 
+Total time elapsed 7.352047 
 Analyzing chr  7   ABCA13  ....
-elapsed time for Run_Meta_OneSet  31.49997 
-Total time elapsed 31.7492 
+elapsed time for Run_Meta_OneSet  37.65821 
+Total time elapsed 37.90743 
 Analyzing chr  7   ABCB1  ....
-elapsed time for Run_Meta_OneSet  5.227587 
-Total time elapsed 5.449635 
+elapsed time for Run_Meta_OneSet  6.797356 
+Total time elapsed 7.174034 
 Analyzing chr  7   ABCB4  ....
-elapsed time for Run_Meta_OneSet  4.564329 
-Total time elapsed 4.692812 
+elapsed time for Run_Meta_OneSet  6.007686 
+Total time elapsed 6.155656 
 Analyzing chr  7   ABCB5  ....
-Error in  ABCB5 
-Analyzing chr  7   ABCB8  ....
-elapsed time for Run_Meta_OneSet  4.588995 
-Total time elapsed 4.809391 
-Analyzing chr  7   ABCF2  ....
-elapsed time for Run_Meta_OneSet  2.157892 
-Total time elapsed 2.343553 
-Analyzing chr  7   ABHD11  ....
-elapsed time for Run_Meta_OneSet  2.156311 
-Total time elapsed 2.254314 
-Analyzing chr  7   ACHE  ....
-elapsed time for Run_Meta_OneSet  2.660947 
-Total time elapsed 2.961284 
-Analyzing chr  7   ACTB  ....
-elapsed time for Run_Meta_OneSet  0.2765689 
-Total time elapsed 0.4629734 
-Analyzing chr  7   ACTL6B  ....
-elapsed time for Run_Meta_OneSet  1.82988 
-Total time elapsed 1.961091 
-Analyzing chr  7   ACTR3B  ....
-elapsed time for Run_Meta_OneSet  1.308056 
-Total time elapsed 1.443904 
-Analyzing chr  7   ACTR3C  ....
-elapsed time for Run_Meta_OneSet  0.8554697 
-Total time elapsed 1.001671 
-Analyzing chr  7   ADAM22  ....
-elapsed time for Run_Meta_OneSet  4.119747 
-Total time elapsed 4.27398 
-Analyzing chr  7   ADAP1  ....
-Error in  ADAP1 
-Analyzing chr  7   ADCK2  ....
-elapsed time for Run_Meta_OneSet  2.747672 
-Total time elapsed 2.842864 
-Analyzing chr  7   ADCY1  ....
-elapsed time for Run_Meta_OneSet  3.94853 
-Total time elapsed 4.104031 
-Analyzing chr  7   ADCYAP1R1  ....
-elapsed time for Run_Meta_OneSet  2.305315 
-Total time elapsed 2.44244 
-Analyzing chr  7   AEBP1  ....
-elapsed time for Run_Meta_OneSet  6.540639 
-Total time elapsed 6.732329 
-Analyzing chr  7   AGAP3  ....
-Error in  AGAP3 
-Analyzing chr  7   AGBL3  ....
-elapsed time for Run_Meta_OneSet  5.080517 
-Total time elapsed 5.300638 
-Analyzing chr  7   AGFG2  ....
-elapsed time for Run_Meta_OneSet  2.652233 
-Total time elapsed 2.78684 
-Analyzing chr  7   AGK  ....
-elapsed time for Run_Meta_OneSet  2.325286 
-Total time elapsed 2.474178 
-Analyzing chr  7   AGMO  ....
-elapsed time for Run_Meta_OneSet  3.812359 
-Total time elapsed 3.943217 
-Analyzing chr  7   AGR2  ....
-elapsed time for Run_Meta_OneSet  0.9227281 
-Total time elapsed 1.073301 
-Analyzing chr  7   AGR3  ....
-elapsed time for Run_Meta_OneSet  1.0697 
-Total time elapsed 1.242548 
-Analyzing chr  7   AHCYL2  ....
-elapsed time for Run_Meta_OneSet  1.966578 
-Total time elapsed 2.084952 
-Analyzing chr  7   AHR  ....
-elapsed time for Run_Meta_OneSet  3.673644 
-Total time elapsed 3.80116 
-Analyzing chr  7   AIMP2  ....
-elapsed time for Run_Meta_OneSet  2.373839 
-Total time elapsed 2.47065 
-Analyzing chr  7   AKAP9  ....
-elapsed time for Run_Meta_OneSet  17.27785 
-Total time elapsed 17.48653 
-Analyzing chr  7   AKR1B1  ....
-elapsed time for Run_Meta_OneSet  4.009056 
-Total time elapsed 4.245715 
-Analyzing chr  7   AKR1B10  ....
-elapsed time for Run_Meta_OneSet  2.842198 
-Total time elapsed 3.094127 
-Analyzing chr  7   AKR1B15  ....
-elapsed time for Run_Meta_OneSet  1.823313 
-Total time elapsed 1.973562 
-Analyzing chr  7   AKR1D1  ....
-elapsed time for Run_Meta_OneSet  2.116798 
-Total time elapsed 2.254722 
-Analyzing chr  7   ALKBH4  ....
-elapsed time for Run_Meta_OneSet  2.395345 
-Total time elapsed 2.547766 
-Analyzing chr  7   AMPH  ....
-elapsed time for Run_Meta_OneSet  3.61093 
-Total time elapsed 3.817563 
-Analyzing chr  7   AMZ1  ....
-elapsed time for Run_Meta_OneSet  6.574223 
-Total time elapsed 6.724934 
-Analyzing chr  7   ANKIB1  ....
-elapsed time for Run_Meta_OneSet  4.042103 
-Total time elapsed 4.209463 
-Analyzing chr  7   ANKMY2  ....
-elapsed time for Run_Meta_OneSet  2.029433 
-Total time elapsed 2.182299 
-Analyzing chr  7   ANKRD61  ....
-elapsed time for Run_Meta_OneSet  2.584609 
-Total time elapsed 2.684968 
-Analyzing chr  7   ANKRD7  ....
-elapsed time for Run_Meta_OneSet  1.269421 
-Total time elapsed 1.436411 
-Analyzing chr  7   ANLN  ....
-elapsed time for Run_Meta_OneSet  4.499406 
-Total time elapsed 4.636165 
-Analyzing chr  7   AOAH  ....
-elapsed time for Run_Meta_OneSet  3.124913 
-Total time elapsed 3.223485 
-Analyzing chr  7   AOC1  ....
-elapsed time for Run_Meta_OneSet  4.904809 
-Total time elapsed 5.041728 
-Analyzing chr  7   AP1S1  ....
-elapsed time for Run_Meta_OneSet  0.9406164 
-Total time elapsed 1.078101 
-Analyzing chr  7   AP4M1  ....
-elapsed time for Run_Meta_OneSet  3.614575 
-Total time elapsed 3.763596 
-Analyzing chr  7   AP5Z1  ....
-elapsed time for Run_Meta_OneSet  8.079977 
-Total time elapsed 8.218957 
-Analyzing chr  7   AQP1  ....
-elapsed time for Run_Meta_OneSet  1.926507 
-Total time elapsed 2.085253 
-Analyzing chr  7   ARF5  ....
-elapsed time for Run_Meta_OneSet  0.826046 
-Total time elapsed 0.9226403 
-Analyzing chr  7   ARHGEF35  ....
-elapsed time for Run_Meta_OneSet  2.011229 
-Total time elapsed 2.160091 
-Analyzing chr  7   ARHGEF5  ....
-Error in  ARHGEF5 
-Analyzing chr  7   ARL4A  ....
-elapsed time for Run_Meta_OneSet  0.9578996 
-Total time elapsed 1.147926 
-Analyzing chr  7   ARMC10  ....
-elapsed time for Run_Meta_OneSet  1.923494 
-Total time elapsed 2.061347 
-Analyzing chr  7   ARPC1A  ....
-elapsed time for Run_Meta_OneSet  1.42641 
-Total time elapsed 1.875531 
-Analyzing chr  7   ARPC1B  ....
-elapsed time for Run_Meta_OneSet  2.397205 
-Total time elapsed 2.498319 
-Analyzing chr  7   ASB10  ....
-elapsed time for Run_Meta_OneSet  3.887935 
-Total time elapsed 3.996746 
-Analyzing chr  7   ASB15  ....
-elapsed time for Run_Meta_OneSet  3.165245 
-Total time elapsed 3.34241 
-Analyzing chr  7   ASB4  ....
-elapsed time for Run_Meta_OneSet  1.958922 
-Total time elapsed 2.05469 
-Analyzing chr  7   ASIC3  ....
-elapsed time for Run_Meta_OneSet  3.897892 
-Total time elapsed 4.055688 
-Analyzing chr  7   ASL  ....
-elapsed time for Run_Meta_OneSet  2.572348 
-Total time elapsed 2.769124 
-Analyzing chr  7   ASNS  ....
-elapsed time for Run_Meta_OneSet  2.788721 
-Total time elapsed 2.928859 
-Analyzing chr  7   ASZ1  ....
-elapsed time for Run_Meta_OneSet  2.402534 
-Total time elapsed 2.546519 
-Analyzing chr  7   ATG9B  ....
-elapsed time for Run_Meta_OneSet  7.199756 
-Total time elapsed 7.371004 
-Analyzing chr  7   ATP5J2  ....
-elapsed time for Run_Meta_OneSet  1.106132 
-Total time elapsed 1.269234 
-Analyzing chr  7   ATP5J2-PTCD1  ....
-elapsed time for Run_Meta_OneSet  4.778099 
-Total time elapsed 4.957715 
-Analyzing chr  7   ATP6V0A4  ....
-elapsed time for Run_Meta_OneSet  3.73614 
-Total time elapsed 3.909331 
-Analyzing chr  7   ATP6V0E2  ....
-elapsed time for Run_Meta_OneSet  1.438557 
-Total time elapsed 1.59043 
-Analyzing chr  7   ATP6V1F  ....
-elapsed time for Run_Meta_OneSet  0.6777048 
-Total time elapsed 0.8100722 
-Analyzing chr  7   ATXN7L1  ....
-elapsed time for Run_Meta_OneSet  4.549045 
-Total time elapsed 4.699855 
-Analyzing chr  7   AUTS2  ....
-elapsed time for Run_Meta_OneSet  6.115902 
-Total time elapsed 6.263086 
-Analyzing chr  7   AVL9  ....
+elapsed time for Run_Meta_OneSet  9.114609 
+Total time elapsed 9.211197 
+  res_chr res_gene res_pval_adj res_pval_0.00_adj res_pval_0.01_adj
+1       7     AASS    0.5080392        0.50963913        0.50790265
+2       7   ABCA13    0.1864563        0.29231917        0.26742334
+3       7    ABCB1    0.1390826        0.07744226        0.07759973
+4       7    ABCB4    0.6621103        0.76219734        0.76243831
+5       7    ABCB5    0.6480966        0.42911079        0.44147075
+  res_pval_0.04_adj res_pval_0.09_adj res_pval_0.25_adj res_pval_0.50_adj
+1         0.5021582        0.49058886         0.4393352         0.3687696
+2         0.2238762        0.19240301         0.1634805         0.1527245
+3         0.0788545        0.08338493         0.1076192         0.1450889
+4         0.7621336        0.75844088         0.7226647         0.6129036
+5         0.4774876        0.52710545         0.6265745         0.7495878
+  res_pval_1.00_adj
+1         0.3184673
+2         0.1468481
+3         0.2010056
+4         0.4676180
+5         0.8573256
