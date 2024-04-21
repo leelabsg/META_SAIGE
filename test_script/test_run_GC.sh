@@ -13,7 +13,6 @@
     --gwas_path test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt \
     test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt \
     \
-    --ancestry 1 2 \
     --output_prefix test_output/GC_t2d_chr7_0.01_missense_lof_res.txt \
     --verbose TRUE \
     > test_logs/test_log_GC.out

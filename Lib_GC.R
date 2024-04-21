@@ -12,6 +12,8 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
                         cat(paste0('Loading', gwas_paths[cohort]), '\n')
 
                         gwas[[cohort]] <- fread(gwas_paths[cohort])
+                                gwas[[cohort]]$p.value = as.numeric(gwas[[cohort]]$p.value)
+                                gwas[[cohort]]$p.value.NA = as.numeric(gwas[[cohort]]$p.value.NA)
                         n_case.vec <- c(n_case.vec, gwas[[cohort]]$N_case[1])
                         n_ctrl.vec <- c(n_ctrl.vec, gwas[[cohort]]$N_ctrl[1])
                         n.vec <- n_case.vec + n_ctrl.vec
@@ -390,13 +392,10 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 
                         Collapsed_Info_ALL <- Collapsed_Info_ALL[,c('SNPID', 'MajorAllele', 'MinorAllele', 'S', 'MAC', 
                         'Var', 'Var_NoAdj', 'p.value.NA', 'p.value', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')]
-
                 }
-        } else if(trait_type =='continuous'){
+        } else if (trait_type == 'continuous'){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all)
-                , S_ALL=0, MAC_ALL=0, Var_ALL=0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
-
+                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all), S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0,  MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
                 for(i in 1:n.cohort_tmp){
                                 
@@ -443,12 +442,10 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
                         
                         # Update Info
                         Info_ALL$S_ALL[IDX] = Info_ALL$S_ALL[IDX] + data2$S[IDX]
-                        Info_ALL$Var_ALL[IDX] = Info_ALL$Var_ALL[IDX] + data2$Var[IDX]
+                        Info_ALL$Var_ALL_Adj[IDX] = Info_ALL$Var_ALL_Adj[IDX] + data2$Var[IDX]
                         Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-
                         SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
                 }
-                Info_ALL$Var_ALL_Adj = Info_ALL$Var_ALL
 
                 #Run ancestry specific collapsing
                 idx_col <- which(Info_ALL$MAC_ALL <=Col_Cut)
@@ -464,14 +461,12 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
                                 MinorAllele = as.character(c('Y', as.vector(Info_ALL$MinorAllele_ALL[-idx_col]))),
                                 S = as.vector(Collapse_Matrix %*% Info_ALL$S_ALL),
                                 MAC = as.vector(Collapse_Matrix %*% Info_ALL$MAC_ALL),
-                                Var = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_Adj),
+                                Var = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_Adj)
                         )
                         Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
                         Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
                         Collapsed_Info_ALL$MinorAllele <- as.character(Collapsed_Info_ALL$MinorAllele)
-
-                        Collapsed_Info_ALL <- Collapsed_Info_ALL[,c('SNPID', 'MajorAllele', 'MinorAllele', 'S', 'MAC', 'Var')]
-
+                }
         }
 	return(list(Collapsed_SMat_ALL=as.matrix(Collapsed_SMat_ALL), Collapsed_Info_ALL=Collapsed_Info_ALL))
 
@@ -718,15 +713,14 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 			IsExistSNV.vec_tmp = IsExistSNV.vec[idxs]
 			n.cohort_tmp = length(idxs)
 
-			obj_collapsed = Get_AncestrySpecific_META_Data_OneSet(SMat.list_tmp, Info.list_tmp, n.vec_tmp, IsExistSNV.vec_tmp, n.cohort_tmp, ances, Col_Cut = 10)
+			obj_collapsed = Get_AncestrySpecific_META_Data_OneSet(SMat.list_tmp, Info.list_tmp, n.vec_tmp, IsExistSNV.vec_tmp, n.cohort_tmp, ances, Col_Cut = 10, trait_type)
 			SMat.list_collapsed[[ances]] = obj_collapsed$Collapsed_SMat_ALL
 			Info.list_collapsed[[ances]] = obj_collapsed$Collapsed_Info_ALL
 
 			n.vec_collapsed = c(n.vec_collapsed, sum(n.vec_tmp))
 			IsExistSNV.vec_collapsed = c(IsExistSNV.vec_collapsed, as.numeric(nrow(obj_collapsed$Collapsed_Info_ALL) > 0))
 		}
-		obj = Get_META_Data_OneSet(SMat.list_collapsed, Info.list_collapsed, n.vec_collapsed, IsExistSNV.vec_collapsed, n.cohort = length(unique(ancestry)), GC_cutoff, trait_type)
-	}
+		obj = Get_META_Data_OneSet(SMat.list_collapsed, Info.list_collapsed, n.vec_collapsed, IsExistSNV.vec_collapsed, n.cohort = length(unique(ancestry)), GC_cutoff, trait_type)        }
 
         n_all = sum(n.vec)
 
