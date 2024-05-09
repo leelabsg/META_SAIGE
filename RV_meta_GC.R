@@ -29,7 +29,8 @@ library(data.table, quietly = TRUE)
 library(dplyr, quietly = TRUE)
 
 
-source('./Lib_GC.R')
+# source('./Lib_GC.R')
+source('/data/home/parkeunj/metaSAIGE/SAIGE_META/Lib_GC.R')
 
 
 
@@ -85,7 +86,7 @@ for(i in 1: argv$num_cohorts){
 
 for (gene in genes){
 
-    tryCatch({
+    try({
         start <- Sys.time()
         cat('Analyzing chr ', argv$chr, ' ', gene, ' ....\n')
         
@@ -143,8 +144,6 @@ for (gene in genes){
             write.table(out, outpath, row.names = F, col.names = T, quote = F)
         }
     
-    }, error = function(e){
-        cat('Error in ', gene, '\n')
     })
 
 }

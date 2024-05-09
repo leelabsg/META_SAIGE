@@ -1,35 +1,6 @@
 Loadingtest_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt 
 Loadingtest_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt 
 Analyzing chr  7   AASS  ....
-elapsed time for Run_Meta_OneSet  7.149484 
-Total time elapsed 7.352047 
+elapsed time for Run_Meta_OneSet  6.075998 
+Total time elapsed 6.292833 
 Analyzing chr  7   ABCA13  ....
-elapsed time for Run_Meta_OneSet  37.65821 
-Total time elapsed 37.90743 
-Analyzing chr  7   ABCB1  ....
-elapsed time for Run_Meta_OneSet  6.797356 
-Total time elapsed 7.174034 
-Analyzing chr  7   ABCB4  ....
-elapsed time for Run_Meta_OneSet  6.007686 
-Total time elapsed 6.155656 
-Analyzing chr  7   ABCB5  ....
-elapsed time for Run_Meta_OneSet  9.114609 
-Total time elapsed 9.211197 
-  res_chr res_gene res_pval_adj res_pval_0.00_adj res_pval_0.01_adj
-1       7     AASS    0.5080392        0.50963913        0.50790265
-2       7   ABCA13    0.1864563        0.29231917        0.26742334
-3       7    ABCB1    0.1390826        0.07744226        0.07759973
-4       7    ABCB4    0.6621103        0.76219734        0.76243831
-5       7    ABCB5    0.6480966        0.42911079        0.44147075
-  res_pval_0.04_adj res_pval_0.09_adj res_pval_0.25_adj res_pval_0.50_adj
-1         0.5021582        0.49058886         0.4393352         0.3687696
-2         0.2238762        0.19240301         0.1634805         0.1527245
-3         0.0788545        0.08338493         0.1076192         0.1450889
-4         0.7621336        0.75844088         0.7226647         0.6129036
-5         0.4774876        0.52710545         0.6265745         0.7495878
-  res_pval_1.00_adj
-1         0.3184673
-2         0.1468481
-3         0.2010056
-4         0.4676180
-5         0.8573256

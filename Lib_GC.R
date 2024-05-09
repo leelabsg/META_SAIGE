@@ -292,10 +292,16 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 	SnpID.all<-unique(SnpID.all)
 	n.all<-length(SnpID.all)
 
+        if(n.all == 0){
+                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
+                Info_ALL <- data.frame(SNPID = character(0), IDX = integer(0), S_ALL = numeric(0), MAC_ALL = numeric(0), Var_ALL_Adj = numeric(0), Var_ALL_NoAdj = numeric(0), MajorAllele_ALL = character(0), MinorAllele_ALL = character(0), N_case_ALL = integer(0), N_ctrl_ALL = integer(0), N_case_hom_ALL = integer(0), N_ctrl_hom_ALL = integer(0), N_case_het_ALL = integer(0), N_ctrl_het_ALL = integer(0))
+                return(list(Collapsed_SMat_ALL=as.matrix(SMat_All), Collapsed_Info_ALL=Info_ALL))
+        }
+
 	# Get meta-analysis score (S_ALL) and GtG matrix
         if(trait_type == 'binary'){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all)
+                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
                 , S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0, Var_ALL_NoAdj = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA,
                 N_case_ALL = 0, N_ctrl_ALL = 0, N_case_hom_ALL = 0, N_ctrl_hom_ALL = 0, N_case_het_ALL = 0, N_ctrl_het_ALL = 0)
 
@@ -395,7 +401,7 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
                 }
         } else if (trait_type == 'continuous'){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all), S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0,  MajorAllele_ALL = NA, MinorAllele_ALL = NA)
+                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all)), S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0,  MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
                 for(i in 1:n.cohort_tmp){
                                 
@@ -483,7 +489,6 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 
 
 Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type){
-
         # Get SnpID of all the variants for the meta-analyze
         SnpID.all<-NULL
         for(i in 1:n.cohort){
@@ -494,11 +499,17 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
         SnpID.all<-unique(SnpID.all)
         n.all<-length(SnpID.all)
 
+        if(n.all == 0){
+                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
+                Info_ALL <- data.frame(SNPID = character(0), IDX = integer(0), S_ALL = numeric(0), MAC_ALL = numeric(0), Var_ALL_Adj = numeric(0), Var_ALL_NoAdj = numeric(0), MajorAllele_ALL = character(0), MinorAllele_ALL = character(0), N_case_ALL = integer(0), N_ctrl_ALL = integer(0), N_case_hom_ALL = integer(0), N_ctrl_hom_ALL = integer(0), N_case_het_ALL = integer(0), N_ctrl_het_ALL = integer(0))
+                return(list(Collapsed_SMat_ALL=as.matrix(SMat_All), Collapsed_Info_ALL=Info_ALL))
+        }
+
         # Get meta-analysis score (S_ALL) and GtG matrix
 
         if(trait_type == 'binary'){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all)
+                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
                 , S_ALL=0, MAC_ALL=0, Var_ALL.GWAS_SPA=0, Var_ALL.GWAS_NA = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
                 for(i in 1:n.cohort){
@@ -628,7 +639,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
         } else if(trait_type == 'continuous'){
                 # Get meta-analysis score (S_ALL) and GtG matrix
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=1:length(SnpID.all)
+                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
                 , S_ALL=0, MAC_ALL=0, Var_ALL=0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
                 for(i in 1:n.cohort){
@@ -698,7 +709,7 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
 
 	# Get ancestry specific obj for each ancestry and URV
-	if (!is.na(ancestry)){
+	if (!is.null(ancestry)){
 		SMat.list_collapsed = list()
 		Info.list_collapsed = list()
 		n.vec_collapsed = c()
@@ -712,7 +723,7 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 			n.vec_tmp = n.vec[idxs]
 			IsExistSNV.vec_tmp = IsExistSNV.vec[idxs]
 			n.cohort_tmp = length(idxs)
-
+        
 			obj_collapsed = Get_AncestrySpecific_META_Data_OneSet(SMat.list_tmp, Info.list_tmp, n.vec_tmp, IsExistSNV.vec_tmp, n.cohort_tmp, ances, Col_Cut = 10, trait_type)
 			SMat.list_collapsed[[ances]] = obj_collapsed$Collapsed_SMat_ALL
 			Info.list_collapsed[[ances]] = obj_collapsed$Collapsed_Info_ALL
@@ -720,7 +731,10 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 			n.vec_collapsed = c(n.vec_collapsed, sum(n.vec_tmp))
 			IsExistSNV.vec_collapsed = c(IsExistSNV.vec_collapsed, as.numeric(nrow(obj_collapsed$Collapsed_Info_ALL) > 0))
 		}
-		obj = Get_META_Data_OneSet(SMat.list_collapsed, Info.list_collapsed, n.vec_collapsed, IsExistSNV.vec_collapsed, n.cohort = length(unique(ancestry)), GC_cutoff, trait_type)        }
+
+		obj = Get_META_Data_OneSet(SMat.list_collapsed, Info.list_collapsed, n.vec_collapsed, IsExistSNV.vec_collapsed, n.cohort = length(unique(ancestry)), GC_cutoff, trait_type)
+                print(obj$Info_ALL)
+        }
 
         n_all = sum(n.vec)
 
