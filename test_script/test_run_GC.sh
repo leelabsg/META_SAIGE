@@ -32,3 +32,14 @@
     --trait_type binary \
     --verbose TRUE \
     --output_prefix ./Multi_ancestry_chr21_test
+
+    Rscript /data/home/parkeunj/metaSAIGE/SAIGE_META/RV_meta_GC.R \
+    --num_cohorts 3 \
+    --chr 21 \
+    --col_co 10 \
+    --info_file_path ./gene_aofu/0.01_lof_chr21_loftee.marker_info.txt ./gene_aofu/afr_0.01_lof_chr21_loftee.marker_info.txt ./gene_aofu/amr_0.01_lof_chr21_loftee.marker_info.txt \
+    --gene_file_prefix  ./gene_aofu/0.01_lof_chr21_loftee_ ./gene_aofu/afr_0.01_lof_chr21_loftee_ ./gene_aofu/amr_0.01_lof_chr21_loftee_ \
+    --gwas_path T2D_chr21_step2_output_single.txt T2D_afr_chr21_step2_output_single.txt T2D_amr_chr21_step2_output_single.txt \
+    --trait_type binary \
+    --verbose TRUE \
+    --output_prefix ./Multi_ancestry_chr21_test
