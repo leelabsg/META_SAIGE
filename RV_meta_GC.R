@@ -29,8 +29,8 @@ library(data.table, quietly = TRUE)
 library(dplyr, quietly = TRUE)
 
 
-# source('./Lib_GC.R')
-source('/data/home/parkeunj/metaSAIGE/SAIGE_META/Lib_GC.R')
+source('./Lib_GC.R')
+# source('/data/home/parkeunj/metaSAIGE/SAIGE_META/Lib_GC.R')
 
 
 
