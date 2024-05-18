@@ -564,7 +564,6 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                         SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
                 }
 
-
                 #Variants that need GC-based variance estimation (Eunjae Park 2022-12-20)
                 Info_ALL$pval.GWAS_NA <- pchisq(Info_ALL$S_ALL^2/Info_ALL$Var_ALL.GWAS_NA, df = 1, lower.tail = F)
                 Info_ALL$pval.GWAS_SPA <- pchisq(Info_ALL$S_ALL^2/Info_ALL$Var_ALL.GWAS_SPA, df = 1, lower.tail = F)
@@ -704,12 +703,12 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 # Col_Cut: Cutoff
 #  (2022-07-24, SLEE) Add an optional parameter to return Info_ALL for the debugging purpose...
 Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
-        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type){
+        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NA, trait_type){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
         obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
 
 	# Get ancestry specific obj for each ancestry and URV
-	if (!is.null(ancestry)){
+	if (is.vector(ancestry) && !is.na(ancestry)){
 		SMat.list_collapsed = list()
 		Info.list_collapsed = list()
 		n.vec_collapsed = c()
