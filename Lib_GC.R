@@ -79,15 +79,18 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
                 S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA,
                 stringsAsFactors = FALSE)   
         }
-    
 
 
-    sparseMList = read.table(paste0(gene_file_prefix[cohort], gene, '.txt'), header=F)
-    sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
-    sparseGtG <- sparseGtG[merged$Index, merged$Index]
+        if (file.exists(paste0(gene_file_prefix[cohort], gene, '.txt')) && length(readLines(paste0(gene_file_prefix[cohort], gene, '.txt'))) > 1) {
+                sparseMList = read.table(paste0(gene_file_prefix[cohort], gene, '.txt'), header = FALSE)
+                sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
+                sparseGtG <- sparseGtG[merged$Index, merged$Index]
 
+                SMat.list[[cohort]] <<- sparseGtG
+        } else {
+                SMat.list[[cohort]] <<- sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(0, 0))
+        }
 
-    SMat.list[[cohort]] <<- sparseGtG
 }
 ##################################################
 #
@@ -383,10 +386,14 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
                                 Var_NoAdj = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_NoAdj),
                                 N_case = n_case,
                                 N_ctrl = n_ctrl,
-                                N_case_hom = as.vector(Collapse_Matrix %*% Info_ALL$N_case_hom_ALL),
-                                N_ctrl_hom = as.vector(Collapse_Matrix %*% Info_ALL$N_ctrl_hom_ALL),
-                                N_case_het = as.vector(Collapse_Matrix %*% Info_ALL$N_case_het_ALL),
-                                N_ctrl_het = as.vector(Collapse_Matrix %*% Info_ALL$N_ctrl_het_ALL)
+                                # N_case_hom = as.vector(Collapse_Matrix %*% Info_ALL$N_case_hom_ALL),
+                                # N_ctrl_hom = as.vector(Collapse_Matrix %*% Info_ALL$N_ctrl_hom_ALL),
+                                # N_case_het = as.vector(Collapse_Matrix %*% Info_ALL$N_case_het_ALL),
+                                # N_ctrl_het = as.vector(Collapse_Matrix %*% Info_ALL$N_ctrl_het_ALL)
+                                N_case_hom = NA,
+                                N_ctrl_hom = NA,
+                                N_case_het = NA,
+                                N_ctrl_het = NA                               
                         )
                         Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
                         Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
@@ -575,52 +582,50 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                 Info_ALL$MAC_Control1 <- NA
                 Info_ALL$MAC_Control2 <- NA
                 for (i in 1:nrow(Info_ALL)){
-                        GC_input <- NULL
+                        try({
+                                GC_input <- NULL
+                                for(j in 1:n.cohort){
+                                        if(IsExistSNV.vec[j] == 0){
+                                                next
+                                        }
+                                        cohort_idx = which(Info.list[[j]]$SNPID == Info_ALL$SNPID[i])
+                                        cohort_info = as.data.frame(Info.list[[j]][cohort_idx, ])
 
-                        for(j in 1:n.cohort){
-                                if(IsExistSNV.vec[j] == 0){
-                                        next
+                                        GC_input = rbind(GC_input, cohort_info)
+
                                 }
-                                cohort_idx = which(Info.list[[j]]$SNPID == Info_ALL$SNPID[i])
-                                cohort_info = as.data.frame(Info.list[[j]][cohort_idx, ])
 
-                                GC_input = rbind(GC_input, cohort_info)
+                                GC_input$signed_pval <- sign(GC_input$BETA) * as.numeric(GC_input$p.value)
 
-                        }
+                                N_hom <- GC_input$N_case_hom + GC_input$N_ctrl_hom
+                                N_het <- GC_input$N_case_het + GC_input$N_ctrl_het
+                                GCmat <- matrix(c(N_hom, N_het), ncol=2)
+                                CCsize.GC <- matrix(c(GC_input$N_case, GC_input$N_ctrl), ncol=2)
 
-                        GC_input$signed_pval <- sign(GC_input$BETA) * as.numeric(GC_input$p.value)
-
-                        N_hom <- GC_input$N_case_hom + GC_input$N_ctrl_hom
-                        N_het <- GC_input$N_case_het + GC_input$N_ctrl_het
-                        GCmat <- matrix(c(N_hom, N_het), ncol=2)
-                        CCsize.GC <- matrix(c(GC_input$N_case, GC_input$N_ctrl), ncol=2)
+                                # ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
+                                # nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
 
 
-                        # ncase <- c(sum(GC_input$N_case) * 2 - (sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het)), sum(GC_input$N_case_hom) * 2 + sum(GC_input$N_case_het))
-                        # nctrl <- c(sum(GC_input$N_ctrl) * 2 - (sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het)), sum(GC_input$N_ctrl_hom) * 2 + sum(GC_input$N_ctrl_het))
+                                # test <- rbind(ncase, nctrl)
+                                #run fisher exact test
+                                # fisher <- chisq.test(test)
+                                # cat(i, '\t', GC_input$signed_pval, GCmat, CCsize.GC, '\n')
+                                Adj_pval = SPAmeta(pvalue.GC = GC_input$signed_pval, GCmat = GCmat, CCsize.GC = CCsize.GC, Cutoff.GC = 0)
 
+                                # Info_ALL$pval.fisher[i] <- fisher$p.value
+                                Info_ALL$pval.GC[i] <- abs(Adj_pval)
 
-                        # test <- rbind(ncase, nctrl)
-                        #run fisher exact test
-                        # fisher <- chisq.test(test)
-                        # cat(i, '\t', GC_input$signed_pval, GCmat, CCsize.GC, '\n')
-                        Adj_pval = SPAmeta(pvalue.GC = GC_input$signed_pval, GCmat = GCmat, CCsize.GC = CCsize.GC, Cutoff.GC = 0)
-
-                        # Info_ALL$pval.fisher[i] <- fisher$p.value
-                        Info_ALL$pval.GC[i] <- abs(Adj_pval)
-
-                        # Info_ALL$MAC_Case1[i] = ncase[1]
-                        # Info_ALL$MAC_Case2[i] = ncase[2]
-                        # Info_ALL$MAC_Control1[i] = nctrl[1]
-                        # Info_ALL$MAC_Control2[i] = nctrl[2]
-
-
-
+                                # Info_ALL$MAC_Case1[i] = ncase[1]
+                                # Info_ALL$MAC_Case2[i] = ncase[2]
+                                # Info_ALL$MAC_Control1[i] = nctrl[1]
+                                # Info_ALL$MAC_Control2[i] = nctrl[2]
+                        }, silent = TRUE)
+                }
                 # Modified by SLEE
                 Info_ALL$pval.Adj <- Info_ALL$pval.GWAS_SPA
                 # Output adjusted p-values
                 pval_SPA_idx <- which(Info_ALL$pval.GWAS_SPA < GC_cutoff)
-                Info_ALL$pval.Adj[pval_SPA_idx] <- pmax(Info_ALL$pval.GWAS_SPA[pval_SPA_idx], Info_ALL$pval.GC[pval_SPA_idx])
+                Info_ALL$pval.Adj[pval_SPA_idx] <- pmax(Info_ALL$pval.GWAS_SPA[pval_SPA_idx], Info_ALL$pval.GC[pval_SPA_idx], na.rm = T)
 
                 # # Modified by SLEE
                 # fisher_force_idx <- which(Info_ALL$pval.fisher > 0.99)
@@ -630,8 +635,6 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
                 # if(length(fisher_idx) > 0){
                 #   Info_ALL$pval.Adj[fisher_idx] <- Info_ALL$pval.fisher[fisher_idx]
-
-                }
 
                 Info_ALL$Var_ALL.Adj<- as.double(Info_ALL$S_ALL^2 / qchisq(Info_ALL$pval.Adj, df = 1, lower.tail = FALSE))
 
@@ -713,7 +716,6 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 		Info.list_collapsed = list()
 		n.vec_collapsed = c()
 		IsExistSNV.vec_collapsed = c()
-		SNPID.all = NULL
 		for(ances in unique(ancestry)){
 			idxs = which(ancestry == ances)
 
@@ -774,9 +776,6 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
                 Phi_C = OUT_Meta$Phi_w1 - OUT_Meta$Phi_w2 %*% t(OUT_Meta$Phi_w2)
 	
         }
-
-
-
 
         # Added (2033-07-29)
         # When there is only one SNP
