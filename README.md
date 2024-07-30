@@ -23,7 +23,7 @@
 
 ```
 library(remotes)
-install_github('git@github.com:leelabsg/SAIGE_META.git')
+install_github('git@github.com:leelabsg/META_SAIGE.git')
 library(MetaSAIGE)
 ```
 
