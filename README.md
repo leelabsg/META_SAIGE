@@ -50,6 +50,8 @@ step3_LDmat.R \
 - `verbose`: verbose mode. TRUE or FALSE
 <br>
 example commands could be found in `extdata/test_run_GC.sh`
+<br>
+
 ```
 #!/bin/bash
 cd META_SAIGE
@@ -75,7 +77,6 @@ cd META_SAIGE
     --output_prefix extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res.txt \
     --verbose TRUE 
 ```
-
 
 
 ## Rscript Usage
