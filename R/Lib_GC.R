@@ -1,6 +1,3 @@
-##################################################
-#Function definition for GWAS summary loading
-# Load all the GWAS summary
 load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
     gwas <- list()
     n_case.vec <- c()
@@ -34,7 +31,6 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
 }
 
 
-# Splice GWAS summary by specific genes
 load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, trait_type){
     ############Loading Cohort1 LD and GWAS summary###############
     SNP_info_gene = SNPinfo[which(SNPinfo$Set == gene),]
@@ -707,8 +703,25 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 }
 
-# Col_Cut: Cutoff
-#  (2022-07-24, SLEE) Add an optional parameter to return Info_ALL for the debugging purpose...
+#' Run Meta-analysis
+#' 
+#' This function performs meta-analysis for a set of summary statistics from multiple cohorts.
+#' 
+#' @param SMat.list A list of GtG matrices from each cohort.
+#' @param Info.list A list of dataframes with single variant information (e.g. SNP ID, p-values) from each cohort.
+#' @param n.vec A vector of sample sizes from each cohort.
+#' @param IsExistSNV.vec A vector of binary values indicating whether the SNP exists in each cohort.
+#' @param n.cohort The number of cohorts.
+#' @param Col_Cut The minor allele count cutoff for collapsing.
+#' @param GC_cutoff The p-value cutoff for genomic control.
+#' @param r.all A vector of values for the variance component.
+#' @param weights.beta A vector of weights for the beta coefficients.
+#' @param IsGet_Info_ALL A logical value indicating whether to return the Info_ALL object.
+#' @param ancestry A vector of ancestry labels.
+#' @param trait_type The type of trait (binary or continuous).
+#' 
+#' @return A list of meta-analysis results.
+#' 
 Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
         r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NA, trait_type){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
