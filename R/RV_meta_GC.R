@@ -105,7 +105,6 @@ for (gene in genes){
 
         out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=argv$num_cohorts,
             Col_Cut = argv$col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = argv$ancestry, trait_type = argv$trait_type)
-        # print(out_adj)
         end_MetaOneSet <- Sys.time()
         cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
 

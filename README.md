@@ -1,13 +1,20 @@
 # Meta-SAIGE for Rare Variant Meta-Analysis
 
+## Description
+Meta-SAIGE is a meta-analysis tool for rare variant association studies. It is designed to combine the results of multiple cohorts and perform a meta-analysis. Meta-SAIGE is built on top of SAIGE/SAIGE-GENE+ and can be used to perform meta-analysis on the summary statistics of SAIGE and LD matrix from SAIGE-GENE+.
+
+## Workflow Overview
+
+![MetaSTAAR_workflow](docs/MetaSAIGE_workflow.png)
+
 ## Dependencies (built with R3.6.3)
+-`SAIGE`
 -`argparser`
 -`data.table`
 -`dplyr`
 -`SKAT`
 -`SPAtest`
 -`Matrix`
-
 
 ## Input Files
 
@@ -19,13 +26,6 @@
 
 -`Single-variant level GWAS summary for collapsed variants` : can be obtained from SAIGE-GENE+ with `--is_single_in_groupTest=TRUE` option (only for Cohort Specific collapsing)
 
-## Installation
-
-```
-library(remotes)
-install_github('git@github.com:leelabsg/SAIGE_META.git')
-library(MetaSAIGE)
-```
 
 ## Command Line Usage
 
@@ -50,6 +50,14 @@ library(MetaSAIGE)
 example commands could be found in 'test_script'
 
 ## Rscript Usage
+
+### Installation
+
+```
+library(remotes)
+install_github('git@github.com:leelabsg/SAIGE_META.git')
+library(MetaSAIGE)
+```
 
 ### Loading Input Files
 ```

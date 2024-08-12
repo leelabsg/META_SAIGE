@@ -86,7 +86,12 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
                 sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
                 sparseGtG <- sparseGtG[merged$Index, merged$Index]
 
+                #If just one double coerce to sparse Matrix
+                if (is.double(sparseGtG)){
+                        sparseGtG <- Matrix:::sparseMatrix(i = 1, j = 1, x = as.integer(sparseGtG))
+                }
                 SMat.list[[cohort]] <<- sparseGtG
+
         } else {
                 SMat.list[[cohort]] <<- sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(0, 0))
         }
@@ -520,7 +525,6 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                 , S_ALL=0, MAC_ALL=0, Var_ALL.GWAS_SPA=0, Var_ALL.GWAS_NA = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
 
                 for(i in 1:n.cohort){
-
                         if(IsExistSNV.vec[i] == 0){
                                 next
                         }
@@ -742,7 +746,7 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         nSNP = m
 
         MAC = obj$Info_ALL$MAC_ALL
-        MAF = MAC / n_all/2
+        MAF = MAC / n_all / 2
 
         #Bug fix (2022-07-18) Get_Cor input argument n_all was added.
 
@@ -777,6 +781,9 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 	
         }
 
+        cat('number of variants before collapsing: ', nSNP, '\n')
+        cat('number of variants after collapsing: ', nrow(S_M_C), '\n')
+        
         # Added (2033-07-29)
         # When there is only one SNP
         if(length(S_M_C)==1){
@@ -790,10 +797,11 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         }
         out_Meta$nSNP = length(S_M_C)
         if(IsGet_Info_ALL){
-                out_Meta$Info_ALL = obj$Info_ALL
-                out_Meta$Score = cbind(S_M_C)
-                out_Meta$Phi = Phi_C
-                out_Meta$r.all = r.all
+                # out_Meta$Info_ALL = obj$Info_ALL
+                # out_Meta$Score = cbind(S_M_C)
+                # out_Meta$Phi = Phi_C
+                # out_Meta$r.all = r.all
+
         }
         return(out_Meta)
 
