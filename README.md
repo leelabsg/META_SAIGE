@@ -86,6 +86,7 @@ step3_LDmat.R \
     --maxMAF_in_groupTest=0.01 \ #Maximum MAF for group-based analysis ex. 0.01 0.001 0.0001
 ```
 <br>
+
 Step3 generates a sparse LD matrix for each gene using the specified gene_file_prefix. This prefix corresponds to the gene-based LD matrix files and matches the prefix of the marker_info.txt file. Additionally, Step3 produces the `marker_info.txt` file, which contains variant information within the LD matrix and serves as an input for Meta-SAIGE. Examples are provided in the `extdata/test_input` directory.
 
 ## CLI Usage
