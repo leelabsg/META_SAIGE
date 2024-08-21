@@ -47,3 +47,4 @@ Run_MetaSAIGE(
   verbose = TRUE,
   trait_type = "binary"
 )
+```
