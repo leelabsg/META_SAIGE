@@ -33,40 +33,40 @@ library(MetaSAIGE)
 # Step 1: Fitting the Null Model
 
 Rscript step1_fitNULLGLMM.R \
-    --sparseGRMFile=${sparse_grm_file} \                              # File containing sparse GRM (genomic relatedness matrix)
-    --sparseGRMSampleIDFile=${sparse_grm_sample_id_file} \            # File containing sample IDs for the sparse GRM
-    --useSparseGRMtoFitNULL=TRUE \                                    # Use sparse GRM to fit the null model
-    --plinkFile=${plink_prefix} \                                     # Prefix for PLINK files
-    --phenoFile=${pheno_file} \                                       # File containing phenotype data
-    --phenoCol=${pheno_col} \                                         # Column name of the phenotype in the phenotype file
-    --covarColList=${covar_list} \                                    # List of covariates to include in the model (comma-separated)
-    --sampleIDColinphenoFile=IND_ID \                                 # Column name of the sample IDs in the phenotype file
-    --traitType=binary \                                              # Type of the trait (binary in this case)
-    --nThreads=1 \                                                    # Number of threads to use (1 in this case)
-    --outputPrefix=${output_dir} \                                    # Prefix for output files
-    --IsOverwriteVarianceRatioFile=TRUE \                             # Whether to overwrite existing variance ratio files
-    --LOCO=TRUE                                                       # Perform Leave-One-Chromosome-Out analysis
+    --sparseGRMFile=${sparse_grm_file} \                          # File containing sparse GRM (genomic relatedness matrix)
+    --sparseGRMSampleIDFile=${sparse_grm_sample_id_file} \        # File containing sample IDs for the sparse GRM
+    --useSparseGRMtoFitNULL=TRUE \                                # Use sparse GRM to fit the null model
+    --plinkFile=${plink_prefix} \                                 # Prefix for PLINK files
+    --phenoFile=${pheno_file} \                                   # File containing phenotype data
+    --phenoCol=${pheno_col} \                                     # Column name of the phenotype in the phenotype file
+    --covarColList=${covar_list} \                                # List of covariates to include in the model (comma-separated)
+    --sampleIDColinphenoFile=IND_ID \                             # Column name of the sample IDs in the phenotype file
+    --traitType=binary \                                          # Type of the trait (binary in this case)
+    --nThreads=1 \                                                # Number of threads to use (1 in this case)
+    --outputPrefix=${output_dir} \                                # Prefix for output files
+    --IsOverwriteVarianceRatioFile=TRUE \                         # Whether to overwrite existing variance ratio files
+    --LOCO=TRUE                                                   # Perform Leave-One-Chromosome-Out analysis
 
 # Step 2: Single variant association testing
 
 Rscript step2_SPAtests.R \
-    --bedFile=${plink_prefix}.bed \                                     # PLINK .bed file 
-    --bimFile=${plink_prefix}.bim \                                     # PLINK .bim file 
-    --famFile=${plink_prefix}.fam \                                     # PLINK .fam file 
-    --AlleleOrder=alt-first \                                           # Allele order for testing (or ref-first)
-    --SAIGEOutputFile=${output_dir}.txt \                               # Output file for SAIGE step2 results
-    --chrom=2 \                                                         # Chromosome to analyze (chromosome 2 in this case)
-    --minMAF=0 \                                                        # Minimum minor allele frequency (MAF) threshold
-    --minMAC=0.5 \                                                      # Minimum minor allele count (MAC) threshold
-    --is_overwrite_output=TRUE \                                        # Whether to overwrite existing output files
-    --GMMATmodelFile=${step1_GMMATmodelFile}.rda \                      # File containing the fitted null model from Step 1
-    --varianceRatioFile=${step1_varianceRatioFile}.txt \                # File containing the variance ratio from Step 1
-    --maxMAF=0.01 \                                                     # Maximum minor allele frequency (MAF) threshold
-    --is_Firth_beta=TRUE \                                              # Whether to use Firth’s correction for rare variants
-    --pCutoffforFirth=0.05 \                                            # p-value cutoff for applying Firth’s correction
-    --is_output_moreDetails=TRUE \                                      # Output additional details in the result file (crucial for GC-based SPA tests)
-    --max_MAC_for_ER=10 \                                               # Maximum MAC for Efficient Resampling
-    --LOCO=TRUE                                                         # Perform Leave-One-Chromosome-Out analysis
+    --bedFile=${plink_prefix}.bed \                               # PLINK .bed file 
+    --bimFile=${plink_prefix}.bim \                               # PLINK .bim file 
+    --famFile=${plink_prefix}.fam \                               # PLINK .fam file 
+    --AlleleOrder=alt-first \                                     # Allele order for testing (or ref-first)
+    --SAIGEOutputFile=${output_dir}.txt \                         # Output file for SAIGE step2 results
+    --chrom=2 \                                                   # Chromosome to analyze (chromosome 2 in this case)
+    --minMAF=0 \                                                  # Minimum minor allele frequency (MAF) threshold
+    --minMAC=0.5 \                                                # Minimum minor allele count (MAC) threshold
+    --is_overwrite_output=TRUE \                                  # Whether to overwrite existing output files
+    --GMMATmodelFile=${step1_GMMATmodelFile}.rda \                # File containing the fitted null model from Step 1
+    --varianceRatioFile=${step1_varianceRatioFile}.txt \          # File containing the variance ratio from Step 1
+    --maxMAF=0.01 \                                               # Maximum minor allele frequency (MAF) threshold
+    --is_Firth_beta=TRUE \                                        # Whether to use Firth’s correction for rare variants
+    --pCutoffforFirth=0.05 \                                      # p-value cutoff for applying Firth’s correction
+    --is_output_moreDetails=TRUE \                                # Output additional details in the result file (crucial for GC-based SPA tests)
+    --max_MAC_for_ER=10 \                                         # Maximum MAC for Efficient Resampling
+    --LOCO=TRUE                                                   # Perform Leave-One-Chromosome-Out analysis
 ```
   
 - `LD matrix` : can be obtained from [SAIGE-GENE+](https://saigegit.github.io/SAIGE-doc/docs/set.html)
@@ -110,7 +110,7 @@ example commands for GC-based method:
 #!/bin/bash
 cd META_SAIGE
 
-Rscript R/RV_meta_GC.R \
+Rscript inst/scripts/RV_meta_GC.R \
     --num_cohorts 3 \
     --trait_type binary \
     --chr 7 \
