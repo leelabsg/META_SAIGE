@@ -5,7 +5,7 @@ Meta-SAIGE is a meta-analysis tool for rare variant association studies. It is d
 
 ## Workflow Overview
 
-![screenshot](docs/MetaSAIGE_worklow.png)
+![screenshot](doc/MetaSAIGE_worklow.png)
 
 ## Dependencies (built with R3.6.3)
 - `SAIGE (v.1.3.2)` (for summary statistics and LD matrix generation only)
