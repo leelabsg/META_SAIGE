@@ -1,10 +1,5 @@
 library(argparser, quietly = TRUE)
 
-#Num cohorts : 
-#CHR : 
-#LD_mat : info file path * num cohorts 
-#GWAS summary : GWAS summary path * num cohorts
-#Output prefix : 
 p <- arg_parser('Run Meta-Analysis using rare variants')
 p <- add_argument(p, '--num_cohorts', help = 'number of cohorts')
 p <- add_argument(p, '--trait_type', help = 'trait type. binary or continuous')
@@ -24,14 +19,7 @@ argv$col_co <- as.numeric(argv$col_co)
 argv$ancestry <- as.numeric(argv$ancestry)
 
 
-library(SKAT, quietly = TRUE)
-library(data.table, quietly = TRUE)
-library(dplyr, quietly = TRUE)
-
-
-source('./Lib_GC.R')
-# source('/data/home/parkeunj/metaSAIGE/SAIGE_META/Lib_GC.R')
-
+source('inst/Lib_GC.R')
 
 
 #Loading the list of genes to analyze

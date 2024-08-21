@@ -7,4 +7,9 @@ Imports:
     dplyr,
     SKAT,
     SPAtest,
-    Matrix
+    Matrix,
+    argparser
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+VignetteBuilder: knitr
+Suggests: knitr, rmarkdown

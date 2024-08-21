@@ -1,13 +1,7 @@
-#' @import SKAT
-#' @import data.table
-#' @import Matrix
-#' @import SKAT
-#' @import dplyr
+#' @name Run_Meta_OneSet
+#' @title Run Meta-Analysis for a Single Set
+#' @description This function performs meta-analysis for a set of summary statistics from multiple cohorts.
 
-
-#' Run MetaSAIGE
-#' This function runs MetaSAIGE for a rare variant meta-analysis
-#' 
 #' @param n.cohorts Number of cohorts
 #' @param chr Chromosome number
 #' @param gwas_path Path to GWAS summary statistics files from SAIGE. The files should be delimited by white space ' '
