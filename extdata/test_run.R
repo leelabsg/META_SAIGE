@@ -16,6 +16,9 @@ col_co = 10
 output_path = 'extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res.txt'
 ancestry = NULL
 trait_type = 'binary'
+groupfile = 'extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt'
+annotation = c('lof', 'missense_lof')
+mafcutoff = c(0.01, 0.001)
 
 
 Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type)

@@ -39,7 +39,7 @@
 #' 
 
 
-Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, trait_type = 'binary', groupfile = NULL, verbose = TRUE){
+Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, trait_type = 'binary', groupfile = NULL, annotation = NULL, mafcutoff = NULL,  verbose = TRUE){
         args <- as.list(environment())
         
         # Print each argument's name and value
@@ -48,6 +48,39 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
         print(args[[name]])
         cat("\n")
         }
+
+        # Check if groupfile is provided
+        if (!is.null(groupfile)) {
+                # Assert that both annotation and mafcutoff should also be provided
+                if (is.null(annotation) || is.null(mafcutoff)) {
+                        stop("If 'groupfile' is provided, both 'annotation' and 'mafcutoff' must also be provided.")
+                }
+
+                lines <- readLines(groupfile)
+                gene_names <- c()
+                variants <- c()
+                annotations <- c()
+
+                for (i in seq(1, length(lines), by = 2)) {
+                # Extract the gene name
+                gene_name <- strsplit(lines[i], " ")[[1]][1]
+                
+                # Extract variants (remove the gene name and "var")
+                var_line <- strsplit(lines[i], " ")[[1]][-c(1, 2)]
+                
+                # Extract annotations (remove the gene name and "anno")
+                anno_line <- strsplit(lines[i + 1], " ")[[1]][-c(1, 2)]
+                
+                # Repeat the gene name for each variant-annotation pair
+                gene_names <- c(gene_names, rep(gene_name, length(var_line)))
+                
+                # Combine variants and annotations
+                variants <- c(variants, var_line)
+                annotations <- c(annotations, anno_line)
+                }
+
+                groupfile_df = data.frame(Gene = gene_names, var = variants, anno = annotations)
+        } 
 
 	MetaSAIGE_InputObj <- Get_MetaSAIGE_Input(n.cohorts, chr, gwas_path, info_path, gene_file_prefix)
 
@@ -130,83 +163,96 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
     #Initializing the output object
     res_chr <- c()
     res_gene <- c()
+    res_group <- c()
+    res_P <- c()
+    res_MAC <- c()
+    res_RV <- c()
+    res_URV <- c()
+    res_P_col <- c()
 
-    res_pval_adj <- c()
-    res_pval_0.00_adj <- c()
-    res_pval_0.01_adj <- c()
-    res_pval_0.04_adj <- c()
-    res_pval_0.09_adj <- c()
-    res_pval_0.25_adj <- c()
-    res_pval_0.50_adj <- c()
-    res_pval_1.00_adj <- c()
 
     #Analysis begins
     for (gene in genes){
+        tmp_P_cauchy <- c()
+        multiple_test = expand.grid(annotation, mafcutoff)
         try({
-            start <- Sys.time()
-            cat('Analyzing chr ', chr, ' ', gene, ' ....\n')
-            
-            SMat.list<-list()
-            Info_adj.list<-list()
-            IsExistSNV.vec <- c()
-            
-            for (i in 1:n.cohort){
+                groupfile_df_gene = groupfile_df[groupfile_df$Gene == gene,]
+
+                start <- Sys.time()
+                cat('Analyzing chr ', chr, ' ', gene, ' ....\n')
+
+                SMat.list<-list()
+                Info_adj.list<-list()
+                IsExistSNV.vec <- c()
+
+                for (i in 1:n.cohort){
 
                 load_cohort(gwas_summary, i, gene, SNP_info[[i]], gene_file_prefix, trait_type)
-            }
+                }
 
-            ###########Meta-analysis##################
-            start_MetaOneSet <- Sys.time()
+                for(i in 1:nrow(multiple_test)){
+                        try({
+                                anno_test = as.character(multiple_test$Var1[i]) ; maf_test = as.numeric(multiple_test$Var2[i])
+                                cat('Annotation: ', anno_test, ' MAF: ', maf_test, '\n')
+                                group = paste0(anno_test, '_', maf_test)
+                                anno_test_vec = unlist(strsplit(anno_test, '_'))
+                                groupfile_df_gene_anno = groupfile_df_gene[groupfile_df_gene$anno %in% anno_test_vec,]
 
-            out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohorts,
-            Col_Cut = col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = ancestry, trait_type = trait_type)
+                                ###########Meta-analysis##################
+                                start_MetaOneSet <- Sys.time()
 
-            end_MetaOneSet <- Sys.time()
-            cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
+                                out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohorts,
+                                Col_Cut = col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = ancestry, trait_type = trait_type, groupfile = groupfile_df_gene_anno, maf_cutoff = maf_test)
 
-            res_chr <- append(res_chr, chr)
-            res_gene <- append(res_gene, gene)
+                                end_MetaOneSet <- Sys.time()
+                                cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
+
+                                res_chr <- append(res_chr, chr)
+                                res_gene <- append(res_gene, gene)
+                                res_group <- append(res_group, group)
 
 
-            if ('param' %in% names(out_adj)){
-                res_pval_adj <- c(res_pval_adj, out_adj$p.value)
-                res_pval_0.00_adj <- c(res_pval_0.00_adj, out_adj$param$p.val.each[1])
-                res_pval_0.01_adj <- c(res_pval_0.01_adj, out_adj$param$p.val.each[2])
-                res_pval_0.04_adj <- c(res_pval_0.04_adj, out_adj$param$p.val.each[3])
-                res_pval_0.09_adj <- c(res_pval_0.09_adj, out_adj$param$p.val.each[4])
-                res_pval_0.25_adj <- c(res_pval_0.25_adj, out_adj$param$p.val.each[5])
-                res_pval_0.50_adj <- c(res_pval_0.50_adj, out_adj$param$p.val.each[6])
-                res_pval_1.00_adj <- c(res_pval_1.00_adj, out_adj$param$p.val.each[7])
-            }else{
-                res_pval_adj <- c(res_pval_adj, out_adj$p.value)
-                res_pval_0.00_adj <- c(res_pval_0.00_adj, NA)
-                res_pval_0.01_adj <- c(res_pval_0.01_adj, NA)
-                res_pval_0.04_adj <- c(res_pval_0.04_adj, NA)
-                res_pval_0.09_adj <- c(res_pval_0.09_adj, NA)
-                res_pval_0.25_adj <- c(res_pval_0.25_adj, NA)
-                res_pval_0.50_adj <- c(res_pval_0.50_adj, NA)
-                res_pval_1.00_adj <- c(res_pval_1.00_adj, NA)
-            }
+                                if ('param' %in% names(out_adj)){
+                                        P_rhos <- as.data.frame(t(c(out_adj$p.value, as.vector(out_adj$param$p.val.each))))
+                                        Pval_Adj = Get_Pval_Adj(P_rhos, cutoff=10^-3)
+                                        res_P <- append(res_P, Pval_Adj)
+                                        tmp_P_cauchy <- append(tmp_P_cauchy, out_adj$p.value)
 
-            end <- Sys.time()
-            cat('Total time elapsed', end - start, '\n')
+                                }else{
+                                        res_P <- append(res_P, out_adj$p.value)
+                                        tmp_P_cauchy <- append(tmp_P_cauchy, out_adj$p.value)
+                                }
 
-			if(verbose == 'TRUE'){
-				out <- data.frame(res_chr, res_gene, res_pval_adj, res_pval_0.00_adj, res_pval_0.01_adj, res_pval_0.04_adj, res_pval_0.09_adj, res_pval_0.25_adj, res_pval_0.50_adj, res_pval_1.00_adj)
-				colnames(out)<- c('CHR', 'GENE', 'Pval', 'Pval_0.00', 'Pval_0.01', 'Pval_0.04', 'Pval_0.09', 'Pval_0.025', 'Pval_0.50', 'Pval_1.00')
+                                res_MAC <- append(res_MAC, out_adj$MAC_all)
+                                res_RV <- append(res_RV, out_adj$RV)
+                                res_URV <- append(res_URV, out_adj$URV)
+                                res_P_col <- append(res_P_col, out_adj$ColURV)
 
-				write.table(out, output_path, row.names = F, col.names = T, quote = F)
-        	}       
+                                end <- Sys.time()
+                                cat('Total time elapsed', end - start, '\n')
+                        })
+
+                }
           
 		})
+
+        res_chr <- append(res_chr, chr) ; res_gene <- append(res_gene, gene) ; res_group <- append(res_group, 'Cauchy')
+        res_P <- append(res_P, CCT(tmp_P_cauchy)) ; res_MAC <- append(res_MAC, NA) ; res_RV <- append(res_RV, NA) ; res_URV <- append(res_URV, NA) ; res_P_col <- append(res_P_col, NA)
+
+        if(verbose == 'TRUE'){
+                out <- data.frame(res_chr, res_gene, res_group, res_P, res_MAC, res_RV, res_URV, res_P_col)
+                colnames(out)<- c('CHR', 'GENE', 'Group', 'Pval', 'MAC', '#Rare Variants', '#Ultra Rare Variants', 'P-value of Collapsed Ultra Rare')
+
+                write.table(out, output_path, sep = '\t', row.names = F, col.names = T, quote = F)
+        }
+
     }
 
 
-    out <- data.frame(res_chr, res_gene, res_pval_adj, res_pval_0.00_adj, res_pval_0.01_adj, res_pval_0.04_adj, res_pval_0.09_adj, res_pval_0.25_adj, res_pval_0.50_adj, res_pval_1.00_adj)
-    head(out)
-    colnames(out)<- c('CHR', 'GENE', 'Pval', 'Pval_0.00', 'Pval_0.01', 'Pval_0.04', 'Pval_0.09', 'Pval_0.025', 'Pval_0.50', 'Pval_1.00')
+    out <- data.frame(res_chr, res_gene, res_group, res_P, res_MAC, res_RV, res_URV, res_P_col)
+    colnames(out)<- c('CHR', 'GENE', 'Group', 'Pval', 'MAC', '#Rare Variants', '#Ultra Rare Variants', 'P-value of Collapsed Ultra Rare')
 
-    write.table(out, output_path, row.names = F, col.names = T, quote = F)
+    write.table(out, output_path, sep = '\t', row.names = F, col.names = T, quote = F)
 }
 
 
@@ -256,7 +302,7 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
 
         if(trait_type == 'binary'){
                 for(cohort in 1:n_cohorts){
-                        cat(paste0('Loading', gwas_paths[cohort]), '\n')
+                        cat(paste0('Loading ', gwas_paths[cohort]), '\n')
 
                         gwas[[cohort]] <- fread(gwas_paths[cohort])
                                 gwas[[cohort]]$p.value = as.numeric(gwas[[cohort]]$p.value)
@@ -268,7 +314,7 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
         }
         else if(trait_type == 'continuous'){
                 for(cohort in 1:n_cohorts){
-                        cat(paste0('Loading', gwas_paths[cohort]), '\n')
+                        cat(paste0('Loading ', gwas_paths[cohort]), '\n')
 
                         gwas[[cohort]] <- fread(gwas_paths[cohort])
                         n.vec <- gwas[[cohort]]$N[1]
@@ -343,69 +389,7 @@ Get_Collabsing<-function(nSNP, SNP_list){
 }
 
 
-################################################
-#
-#
-Get_SingleVar_Stat<-function(obj, G){
 
-        m<-ncol(G)
-        idx<-which(colSums(G)>0)
-        G_1<-G[,idx]
-
-
-        S<-rep(0,m)
-        VarS<-matrix(0,m,m)
-
-        if(obj1$out_type=="C"){
-                S_1 = t(G_1) %*% obj$res
-                VarS_1 = rowSums((t(G_1) - colMeans(G_1))^2) * obj1$s2
-
-                S[idx]<-S_1
-                VarS[idx,idx]<-VarS_1
-                re<-list(S=S,  VarS = VarS)
-
-        } else {
-
-                re<-Get_SingleVar_Stat_Binary(obj, G_1)
-
-                S[idx]<-re$S_1
-                VarS[idx,idx]<-re$VarS_1
-                VarS_NoAdj<-re$VarS_NoAdj_1
-                re<-list(S=S,  VarS = VarS, VarS_NoAdj=VarS_NoAdj)
-
-        }
-
-
-
-
-        re$MAF = SKAT:::Get_MAF(G)
-
-        return(re)
-}
-
-
-Get_SingleVar_Stat_Binary<-function(obj, G){
-  
-        #obj<-obj1
-        X = obj$X1
-        u = obj$mu
-        w = obj$pi_1
-        obj$XV = t(X * w)
-        temp1 = solve(t(X) %*% (X * w))
-        obj$XXVX_inv = X %*% temp1
-
-        variancematrix = t(G) %*% (w * G) - (t(G) %*% (w * X)) %*% temp1 %*% (t(w * X) %*% G)
-
-        #VarS is the adjusted variance of each..
-        out_kernel=SKAT:::SPA_ER_kernel(G, obj,  u, Cutoff=2, variancematrix, weight=rep(1, nrow(G)))
-
-        # check the code 
-        # S= out_kernel$zscore.all_0; VarS = out_kernel$VarS; 
-        # pchisq(S^2/VarS, df=1, lower.tail=FALSE) - out_kernel$p.new
-
-        re<-list(S_1= out_kernel$zscore.all_0,  VarS_1 = out_kernel$VarS, VarS_NoAdj_1 = diag(variancematrix))
-        return(re)
- }
 
 #Bug fix (2022-07-18). Previously G_LD1 and n1 were used (instead of G_LD and n)
 Get_Cor<-function(G_LD, MAF, n){
@@ -893,32 +877,23 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 }
 
-#' Run Meta-analysis
-#' 
-#' This function performs meta-analysis for a set of summary statistics from multiple cohorts.
-#' 
-#' @param SMat.list A list of GtG matrices from each cohort.
-#' @param Info.list A list of dataframes with single variant information (e.g. SNP ID, p-values) from each cohort.
-#' @param n.vec A vector of sample sizes from each cohort.
-#' @param IsExistSNV.vec A vector of binary values indicating whether the SNP exists in each cohort.
-#' @param n.cohort The number of cohorts.
-#' @param Col_Cut The minor allele count cutoff for collapsing.
-#' @param GC_cutoff The p-value cutoff for genomic control.
-#' @param r.all A vector of values for the variance component.
-#' @param weights.beta A vector of weights for the beta coefficients.
-#' @param IsGet_Info_ALL A logical value indicating whether to return the Info_ALL object.
-#' @param ancestry A vector of ancestry labels.
-#' @param trait_type The type of trait (binary or continuous).
-#' 
-#' @return A list of meta-analysis results.
-#' 
+
 Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
-        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type){
+        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile, maf_cutoff){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
         obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
 
+        #Filtering out SNPs based on the annotation from groupfile
+        if(!is.null(groupfile)){
+                idx = which(obj$Info_ALL$SNPID %in% groupfile$var)
+                obj$Info_ALL = obj$Info_ALL[idx,]
+                obj$SMat_All = obj$SMat_All[idx,idx]
+        }
+
+
 	# Get ancestry specific obj for each ancestry and URV
 	if (is.vector(ancestry)){
+                cat('Ancestry specific collapsing is being performed \n')
 		SMat.list_collapsed = list()
 		Info.list_collapsed = list()
 		n.vec_collapsed = c()
@@ -944,12 +919,22 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 
         n_all = sum(n.vec)
 
-        # Number of SNPs
-        m = length(obj$Info_ALL$S_ALL)
-        nSNP = m
-
         MAC = obj$Info_ALL$MAC_ALL
         MAF = MAC / n_all / 2
+
+        ## Filter out SNPs with MAF > maf_cutoff
+        idx_cutoff = which(MAF <= maf_cutoff)
+        if(length(idx_cutoff) > 0){
+                obj$Info_ALL = obj$Info_ALL[idx_cutoff,]
+                obj$SMat_All = obj$SMat_All[idx_cutoff, idx_cutoff]
+                MAC = MAC[idx_cutoff]
+                MAF = MAF[idx_cutoff]
+        }
+        ##
+
+        
+        m = length(obj$Info_ALL$S_ALL)
+        nSNP = m
 
         #Bug fix (2022-07-18) Get_Cor input argument n_all was added.
 
@@ -981,12 +966,10 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         } else {
                 S_M_C = OUT_Meta$S_w
                 Phi_C = OUT_Meta$Phi_w1 - OUT_Meta$Phi_w2 %*% t(OUT_Meta$Phi_w2)
-	
         }
 
-        cat('number of variants before collapsing: ', nSNP, '\n')
-        cat('number of variants after collapsing: ', nrow(S_M_C), '\n')
-        
+
+
         # Added (2033-07-29)
         # When there is only one SNP
         if(length(S_M_C)==1){
@@ -1000,12 +983,82 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         }
         out_Meta$nSNP = length(S_M_C)
         if(IsGet_Info_ALL){
-                # out_Meta$Info_ALL = obj$Info_ALL
-                # out_Meta$Score = cbind(S_M_C)
-                # out_Meta$Phi = Phi_C
-                # out_Meta$r.all = r.all
+                out_Meta$MAC_all = sum(MAC)
+                out_Meta$RV = nSNP
+                out_Meta$URV = length(idx_col)
+                out_Meta$ColURV = pchisq(S_M_C[1]^2/Phi_C[1,1], df=1, lower.tail = FALSE)
 
         }
         return(out_Meta)
 
+}
+
+### Post Adjustment
+
+#Adjusting p-values by min P
+Get_Pval_Adj<-function(pval_Matrix, cutoff=10^-3){
+
+	# pval_Matrix<-pval_1_Matrix
+	skato<-pval_Matrix[,1]
+	minP<-apply(pval_Matrix[,-1], 1, min)*2
+	idx<-which(skato<cutoff)
+	idx1<-which(minP - skato > 0)
+	idx2<-intersect(idx,idx1)
+	skato[idx2]<-minP[idx2]
+	return(skato)
+}
+
+#Cauchy combination for multiple testing with varying annotations and maf cutoffs
+CCT <- function(pvals, weights=NULL){
+        #### check if there is NA
+        if(sum(is.na(pvals)) > 0){
+        stop("Cannot have NAs in the p-values!")
+        }
+
+        #### check if all p-values are between 0 and 1
+        if((sum(pvals<0) + sum(pvals>1)) > 0){
+        stop("All p-values must be between 0 and 1!")
+        }
+
+        #### check if there are p-values that are either exactly 0 or 1.
+        is.zero <- (sum(pvals==0)>=1)
+        is.one <- (sum(pvals==1)>=1)
+        #if(is.zero && is.one){
+        #  stop("Cannot have both 0 and 1 p-values!")
+        #}
+        if(is.zero){
+        return(0)
+        }
+        if(is.one){
+        warning("There are p-values that are exactly 1!")
+        return(min(1,(min(pvals))*(length(pvals))))
+        }
+
+        #### check the validity of weights (default: equal weights) and standardize them.
+        if(is.null(weights)){
+        weights <- rep(1/length(pvals),length(pvals))
+        }else if(length(weights)!=length(pvals)){
+        stop("The length of weights should be the same as that of the p-values!")
+        }else if(sum(weights < 0) > 0){
+        stop("All the weights must be positive!")
+        }else{
+        weights <- weights/sum(weights)
+        }
+
+        #### check if there are very small non-zero p-values
+        is.small <- (pvals < 1e-16)
+        if (sum(is.small) == 0){
+        cct.stat <- sum(weights*tan((0.5-pvals)*pi))
+        }else{
+        cct.stat <- sum((weights[is.small]/pvals[is.small])/pi)
+        cct.stat <- cct.stat + sum(weights[!is.small]*tan((0.5-pvals[!is.small])*pi))
+        }
+
+        #### check if the test statistic is very large.
+        if(cct.stat > 1e+15){
+        pval <- (1/cct.stat)/pi
+        }else{
+        pval <- 1-pcauchy(cct.stat)
+        }
+        return(pval)
 }
