@@ -19,6 +19,9 @@
 #' @param ancestry Ancestry identifier. Any numbers starting from 1 could be used to identify ancestries (e.g. 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 #' @param verbose Verbose. Default is TRUE
 #' @param trait_type Trait type. Default is 'binary'
+#' @param groupfile Groupfile for functional annotation. Same format that is used for SAIGE-GENE+ (You can modify this file to select the variants of interest)
+#' @param annotation Functional annotation for multiple testing to annalyze should be parsed with '_' (e.g. c('lof', 'missense_lof'))
+#' @param mafcutoff MAF cutoff for multiple testing (e.g. c(0.01, 0.001))
 #' 
 #' @return A data frame with the following columns:
 #' - CHR: Chromosome number

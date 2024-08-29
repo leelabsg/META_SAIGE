@@ -14,23 +14,11 @@ Run_MetaSAIGE(
   col_co,
   output_path,
   ancestry = NULL,
-  verbose = TRUE,
-  trait_type = "binary"
-)
-
-Run_Meta_OneSet(
-  SMat.list,
-  Info.list,
-  n.vec,
-  IsExistSNV.vec,
-  n.cohort,
-  Col_Cut = 10,
-  GC_cutoff = 0.05,
-  r.all = c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),
-  weights.beta = c(1, 25),
-  IsGet_Info_ALL = True,
-  ancestry = NA,
-  trait_type
+  trait_type = "binary",
+  groupfile = NULL,
+  annotation = NULL,
+  mafcutoff = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -48,31 +36,17 @@ Run_Meta_OneSet(
 
 \item{output_path}{Output path for the results}
 
-\item{ancestry}{A vector of ancestry labels.}
+\item{ancestry}{Ancestry identifier. Any numbers starting from 1 could be used to identify ancestries (e.g. 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)}
+
+\item{trait_type}{Trait type. Default is 'binary'}
+
+\item{groupfile}{Groupfile for functional annotation. Same format that is used for SAIGE-GENE+ (You can modify this file to select the variants of interest)}
+
+\item{annotation}{Functional annotation for multiple testing to annalyze should be parsed with '_' (e.g. c('lof', 'missense_lof'))}
+
+\item{mafcutoff}{MAF cutoff for multiple testing (e.g. c(0.01, 0.001))}
 
 \item{verbose}{Verbose. Default is TRUE}
-
-\item{trait_type}{The type of trait (binary or continuous).}
-
-\item{SMat.list}{A list of GtG matrices from each cohort.}
-
-\item{Info.list}{A list of dataframes with single variant information (e.g. SNP ID, p-values) from each cohort.}
-
-\item{n.vec}{A vector of sample sizes from each cohort.}
-
-\item{IsExistSNV.vec}{A vector of binary values indicating whether the SNP exists in each cohort.}
-
-\item{n.cohort}{The number of cohorts.}
-
-\item{Col_Cut}{The minor allele count cutoff for collapsing.}
-
-\item{GC_cutoff}{The p-value cutoff for genomic control.}
-
-\item{r.all}{A vector of values for the variance component.}
-
-\item{weights.beta}{A vector of weights for the beta coefficients.}
-
-\item{IsGet_Info_ALL}{A logical value indicating whether to return the Info_ALL object.}
 }
 \value{
 A data frame with the following columns:
@@ -86,12 +60,8 @@ A data frame with the following columns:
 - Pval_0.25: P-value with 0.25 rho for SKAT-O
 - Pval_0.50: P-value with 0.50 rho for SKAT-O
 - Pval_1.00: P-value with 1.00 rho for SKAT-O
-
-A list of meta-analysis results.
 }
 \description{
-This function performs meta-analysis for a set of summary statistics from multiple cohorts.
-
 This function performs meta-analysis for a set of summary statistics from multiple cohorts.
 }
 \examples{

@@ -21,4 +21,4 @@ annotation = c('lof', 'missense_lof')
 mafcutoff = c(0.01, 0.001)
 
 
-Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type)
+Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff)
