@@ -150,8 +150,8 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
             ###########Meta-analysis##################
             start_MetaOneSet <- Sys.time()
 
-            out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=argv$num_cohorts,
-            Col_Cut = argv$col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = argv$ancestry, trait_type = argv$trait_type)
+            out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohorts,
+            Col_Cut = col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = ancestry, trait_type = trait_type)
 
             end_MetaOneSet <- Sys.time()
             cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
