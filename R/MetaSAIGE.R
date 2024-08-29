@@ -39,7 +39,15 @@
 #' 
 
 
-Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, verbose = TRUE, trait_type = 'binary'){
+Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, trait_type = 'binary', groupfile = NULL, verbose = TRUE){
+        args <- as.list(environment())
+        
+        # Print each argument's name and value
+        for (name in names(args)) {
+        cat(paste0(name, ": "), "\n")
+        print(args[[name]])
+        cat("\n")
+        }
 
 	MetaSAIGE_InputObj <- Get_MetaSAIGE_Input(n.cohorts, chr, gwas_path, info_path, gene_file_prefix)
 
@@ -905,12 +913,12 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 #' @return A list of meta-analysis results.
 #' 
 Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
-        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NA, trait_type){
+        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
         obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
 
 	# Get ancestry specific obj for each ancestry and URV
-	if (is.vector(ancestry) && !is.na(ancestry)){
+	if (is.vector(ancestry)){
 		SMat.list_collapsed = list()
 		Info.list_collapsed = list()
 		n.vec_collapsed = c()
