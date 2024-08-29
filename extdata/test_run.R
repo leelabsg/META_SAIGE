@@ -1,3 +1,5 @@
+library(remotes)
+install_github('git@github.com:leelabsg/SAIGE_META.git')
 library(MetaSAIGE)
 
 n.cohorts = 3
