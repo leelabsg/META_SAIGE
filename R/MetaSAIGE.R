@@ -44,68 +44,7 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
 	MetaSAIGE_InputObj <- Get_MetaSAIGE_Input(n.cohorts, chr, gwas_path, info_path, gene_file_prefix)
 
 	# Splice GWAS summary by specific genes
-	load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, trait_type){
-		############Loading Cohort1 LD and GWAS summary###############
-		SNP_info_gene = SNPinfo[which(SNPinfo$Set == gene),]
 
-		gwas = gwas_summary[[cohort]]
-
-		SNP_info_gene$Index <- SNP_info_gene$Index + 1
-
-			if(trait_type == 'binary'){
-					merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
-																									by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-					merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
-
-					merged <- na.omit(merged)
-
-					if(nrow(merged) > 0){
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
-					} else{
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
-					}
-
-					Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
-					S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var,
-					p.value.NA = merged$p.value.NA, p.value = merged$p.value, BETA = merged$BETA, 
-					N_case = merged$N_case, N_ctrl = merged$N_ctrl, N_case_hom = merged$N_case_hom, N_ctrl_hom = merged$N_ctrl_hom, N_case_het = merged$N_case_het, N_ctrl_het = merged$N_ctrl_het, 
-					stringsAsFactors = FALSE) 
-
-			}else if (trait_type == 'continuous') {
-					merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
-																									by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-					merged$adj_var <- merged$Tstat^2 / qchisq(as.numeric(merged$p.value), df = 1, lower.tail = F)    
-
-					merged <- na.omit(merged)
-
-					if(nrow(merged) > 0){
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
-					} else{
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
-					}
-
-					Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
-					S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA,
-					stringsAsFactors = FALSE)   
-			}
-
-
-			if (file.exists(paste0(gene_file_prefix[cohort], gene, '.txt')) && length(readLines(paste0(gene_file_prefix[cohort], gene, '.txt'))) > 1) {
-					sparseMList = read.table(paste0(gene_file_prefix[cohort], gene, '.txt'), header = FALSE)
-					sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
-					sparseGtG <- sparseGtG[merged$Index, merged$Index]
-
-					#If just one double coerce to sparse Matrix
-					if (is.double(sparseGtG)){
-							sparseGtG <- Matrix:::sparseMatrix(i = 1, j = 1, x = as.integer(sparseGtG))
-					}
-					SMat.list[[cohort]] <<- sparseGtG
-
-			} else {
-					SMat.list[[cohort]] <<- sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(0, 0))
-			}
-
-	}
 
     #Loading the input object
     n.cohort <- MetaSAIGE_InputObj[[1]]
@@ -214,7 +153,7 @@ Get_MetaSAIGE_Input <- function(n.cohorts, chr, gwas_path, info_path, gene_file_
     genes = unique(genes)
 
     #Loading GWAS summary
-    all_cohorts <- load_all_cohorts(n.cohorts, gwas_path)
+    all_cohorts <- load_all_cohorts(n.cohorts, gwas_path, trait_type)
     gwas_summary <- all_cohorts[[1]]
     n_case.vec <- all_cohorts[[2]]
     n_ctrl.vec <- all_cohorts[[3]]
@@ -239,7 +178,71 @@ Get_MetaSAIGE_Input <- function(n.cohorts, chr, gwas_path, info_path, gene_file_
 
 ##################################################
 #Function definition for GWAS summary loading
-# Load all the GWAS summary
+# Load all the GWAS 
+load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, trait_type){
+        ############Loading Cohort1 LD and GWAS summary###############
+        SNP_info_gene = SNPinfo[which(SNPinfo$Set == gene),]
+
+        gwas = gwas_summary[[cohort]]
+
+        SNP_info_gene$Index <- SNP_info_gene$Index + 1
+
+                if(trait_type == 'binary'){
+                                merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
+                                                                                                                                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
+                                merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
+
+                                merged <- na.omit(merged)
+
+                                if(nrow(merged) > 0){
+                                                IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
+                                } else{
+                                                IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
+                                }
+
+                                Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
+                                S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var,
+                                p.value.NA = merged$p.value.NA, p.value = merged$p.value, BETA = merged$BETA, 
+                                N_case = merged$N_case, N_ctrl = merged$N_ctrl, N_case_hom = merged$N_case_hom, N_ctrl_hom = merged$N_ctrl_hom, N_case_het = merged$N_case_het, N_ctrl_het = merged$N_ctrl_het, 
+                                stringsAsFactors = FALSE) 
+
+                }else if (trait_type == 'continuous') {
+                                merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
+                                                                                                                                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
+                                merged$adj_var <- merged$Tstat^2 / qchisq(as.numeric(merged$p.value), df = 1, lower.tail = F)    
+
+                                merged <- na.omit(merged)
+
+                                if(nrow(merged) > 0){
+                                                IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
+                                } else{
+                                                IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
+                                }
+
+                                Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
+                                S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA,
+                                stringsAsFactors = FALSE)   
+                }
+
+
+                if (file.exists(paste0(gene_file_prefix[cohort], gene, '.txt')) && length(readLines(paste0(gene_file_prefix[cohort], gene, '.txt'))) > 1) {
+                                sparseMList = read.table(paste0(gene_file_prefix[cohort], gene, '.txt'), header = FALSE)
+                                sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
+                                sparseGtG <- sparseGtG[merged$Index, merged$Index]
+
+                                #If just one double coerce to sparse Matrix
+                                if (is.double(sparseGtG)){
+                                                sparseGtG <- Matrix:::sparseMatrix(i = 1, j = 1, x = as.integer(sparseGtG))
+                                }
+                                SMat.list[[cohort]] <<- sparseGtG
+
+                } else {
+                                SMat.list[[cohort]] <<- sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(0, 0))
+                }
+
+}
+
+
 load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
     gwas <- list()
     n_case.vec <- c()
