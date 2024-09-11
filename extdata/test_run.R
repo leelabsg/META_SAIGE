@@ -13,7 +13,7 @@ info_path = c('extdata/test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt',
 gene_file_prefix = c('extdata/test_input/cohort1/LD_mat/cohort1_chr_7_', 
                      'extdata/test_input/cohort2/LD_mat/cohort2_chr_7_')
 col_co = 10
-output_path = 'extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res.txt'
+output_path = 'extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res_Rscript.txt'
 ancestry = NULL
 trait_type = 'binary'
 groupfile = 'extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt'

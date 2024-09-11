@@ -177,9 +177,9 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
     #Analysis begins
     for (gene in genes){
         tmp_P_cauchy <- c()
-        multiple_test = expand.grid(annotation, mafcutoff)
+        multiple_test = if (is.null(groupfile)) data.frame(matrix(ncol = 2, nrow = 1)) else expand.grid(annotation, mafcutoff)
         try({
-                groupfile_df_gene = groupfile_df[groupfile_df$Gene == gene,]
+                if(!is.null(groupfile)){groupfile_df_gene = groupfile_df[groupfile_df$Gene == gene,]}
 
                 start <- Sys.time()
                 cat('Analyzing chr ', chr, ' ', gene, ' ....\n')
@@ -195,11 +195,17 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
 
                 for(i in 1:nrow(multiple_test)){
                         try({
-                                anno_test = as.character(multiple_test$Var1[i]) ; maf_test = as.numeric(multiple_test$Var2[i])
-                                cat('Annotation: ', anno_test, ' MAF: ', maf_test, '\n')
-                                group = paste0(anno_test, '_', maf_test)
-                                anno_test_vec = unlist(strsplit(anno_test, '_'))
-                                groupfile_df_gene_anno = groupfile_df_gene[groupfile_df_gene$anno %in% anno_test_vec,]
+                                if(!is.null(groupfile)){
+                                        anno_test = as.character(multiple_test$Var1[i]) ; maf_test = as.numeric(multiple_test$Var2[i])
+                                        cat('Annotation: ', anno_test, ' MAF: ', maf_test, '\n')
+                                        group = paste0(anno_test, '_', maf_test)
+                                        anno_test_vec = unlist(strsplit(anno_test, '_'))
+                                        groupfile_df_gene_anno = groupfile_df_gene[groupfile_df_gene$anno %in% anno_test_vec,]
+                                }else{
+                                        anno_test = NULL ; maf_test = NULL ; group = 'No_Groupfile'
+                                        groupfile_df_gene_anno = NULL
+                                }
+
 
                                 ###########Meta-analysis##################
                                 start_MetaOneSet <- Sys.time()
@@ -673,7 +679,8 @@ Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, 
 #       n.vec: sample sizes (vector)
 
 
-Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type){
+# Modified by SLEE. Added on line, MAC_Cutoff for GC
+Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type, MAC_Cutoff_GC=10){
         # Get SnpID of all the variants for the meta-analyze
         SnpID.all<-NULL
         for(i in 1:n.cohort){
@@ -802,7 +809,8 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                 Info_ALL$pval.Adj <- Info_ALL$pval.GWAS_SPA
                 # Output adjusted p-values
                 pval_SPA_idx <- which(Info_ALL$pval.GWAS_SPA < GC_cutoff)
-                Info_ALL$pval.Adj[pval_SPA_idx] <- pmax(Info_ALL$pval.GWAS_SPA[pval_SPA_idx], Info_ALL$pval.GC[pval_SPA_idx], na.rm = T)
+                # Changed... introduced MAC_Cutoff_for_GC by SLEE 2024_08_28
+                pval_SPA_idx <- intersect(which(Info_ALL$pval.GWAS_SPA < GC_cutoff), which(Info_ALL$MAC_ALL >MAC_Cutoff_GC ))
 
                 # # Modified by SLEE
                 # fisher_force_idx <- which(Info_ALL$pval.fisher > 0.99)
@@ -882,7 +890,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 
 Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
-        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile, maf_cutoff){
+        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile = NULL, maf_cutoff){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
         obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
 
@@ -924,15 +932,17 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
 
         MAC = obj$Info_ALL$MAC_ALL
         MAF = MAC / n_all / 2
-
         ## Filter out SNPs with MAF > maf_cutoff
-        idx_cutoff = which(MAF <= maf_cutoff)
-        if(length(idx_cutoff) > 0){
-                obj$Info_ALL = obj$Info_ALL[idx_cutoff,]
-                obj$SMat_All = obj$SMat_All[idx_cutoff, idx_cutoff]
-                MAC = MAC[idx_cutoff]
-                MAF = MAF[idx_cutoff]
+        if (!is.null(maf_cutoff) && maf_cutoff < 0.5){
+                idx_cutoff = which(MAF <= maf_cutoff)
+                if(length(idx_cutoff) > 0){
+                        obj$Info_ALL = obj$Info_ALL[idx_cutoff,]
+                        obj$SMat_All = obj$SMat_All[idx_cutoff, idx_cutoff]
+                        MAC = MAC[idx_cutoff]
+                        MAF = MAF[idx_cutoff]
+                }
         }
+
         ##
 
         
