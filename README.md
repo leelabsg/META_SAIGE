@@ -90,7 +90,7 @@ step3_LDmat.R \
 Step3 generates a sparse LD matrix for each gene using the specified gene_file_prefix. This prefix corresponds to the gene-based LD matrix files and matches the prefix of the marker_info.txt file. Additionally, Step3 produces the `marker_info.txt` file, which contains variant information within the LD matrix and serves as an input for Meta-SAIGE. Examples are provided in the `extdata/test_input` directory.
 
 ## Rscript Usage
-Meta-SAIGE can be run using Rscript. The following functions are available for running Meta-SAIGE in R.
+Meta-SAIGE can be run using Rscript. The following function is available for running Meta-SAIGE in Rscript (example provided in `extdata/test_run.R`).
 
 ### Running Meta-Analysis
 ```
@@ -109,10 +109,10 @@ Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, ou
 - `annotation` : functional annotation for the variants of interest. ex. c('lof', 'missense_lof')
 - `mafcutoff` : Maximum MAF for group-based analysis ex. c(0.01 0.001 0.0001)
 
-## CLI Usage (Deprecated)
-Meta-SAIGE can also be run using the command line interface. The following arguments are available for running Meta-SAIGE in the command line.
+## CLI Usage
+Meta-SAIGE can also be run using the command line interface. The following arguments are available for running Meta-SAIGE in the command line (example provided in `extdata/test_run_GC.sh`).
 
-### GC-based Method (default method)
+### Running Meta-Analysis
 - `--num_cohorts` : number of cohorts
 - `--chr` : chrmosome number
 - `--col_co` : ultra-rare variant collapsing cut-off. (default is 10)
@@ -122,6 +122,9 @@ Meta-SAIGE can also be run using the command line interface. The following argum
 - `--ancestry` :  Ancestry indicator (ex. 1 1 1 2). Need to specify ancestry indicator from each and every cohort delimited by white-space (`' '`). Optional input for multi-ancestry meta-analysis.
 - `output_prefix`: directory for output
 - `verbose`: verbose mode. TRUE or FALSE
+- `--groupfile` : Path to the group file. This file should include gene annotations, grouping variants by genes or other relevant units (e.g., UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt).
+- `--annotation` : Annotation types, typically variant effect categories such as lof (loss of function) or missense_lof (missense and loss of function). Multiple annotations can be specified.
+- `--mafcutoff` : Minor allele frequency cutoff values. You can specify multiple thresholds (e.g., 0.01 0.001).
 <br>
 example commands for GC-based method:
 <br>
@@ -131,11 +134,10 @@ example commands for GC-based method:
 cd META_SAIGE
 
 Rscript inst/scripts/RV_meta_GC.R \
-    --num_cohorts 3 \
+    --num_cohorts 2 \
     --trait_type binary \
     --chr 7 \
     --col_co 10 \
-    --ancestry 1 1 2 \
     --info_file_path extdata/test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt \
     extdata/test_input/cohort2/LD_mat/cohort2_chr_7.marker_info.txt \
     extdata/test_input/cohort2/LD_mat/cohort2_chr_7.marker_info.txt \
@@ -148,7 +150,10 @@ Rscript inst/scripts/RV_meta_GC.R \
     extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt \
     extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt \
     \
-    --output_prefix extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res.txt \
-    --verbose TRUE 
+    --output_prefix extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res_CLI.txt \
+    --verbose TRUE \
+    --groupfile extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt \
+    --annotation lof missense_lof \
+    --mafcutoff 0.01 0.001
 ```
 

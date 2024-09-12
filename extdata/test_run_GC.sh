@@ -1,7 +1,7 @@
 #!/bin/bash
 cd SAIGE_META
 
-/usr/bin/time -v Rscript inst/scripts/RV_meta_GC.R \
+Rscript inst/scripts/RV_meta_GC.R \
     --num_cohorts 2 \
     --trait_type binary \
     --chr 7 \
