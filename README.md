@@ -104,11 +104,12 @@ Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, ou
 - `gene_file_prefix` : prefix to the LD matrix separated by genes (also generated from SAIGE `step3_LDmat.R`) usually same as marker_info.txt file's prefix
 - `col_co` : ultra-rare variant collapsing cut-off. (default is 10)
 - `output_path` : path for the meta-analysis resutls
-- `ancestry` :  Ancestry indicator (ex. 1 1 1 2). Need to specify ancestry indicator from each and every cohort delimited by white-space (`' '`). Optional input for multi-ancestry meta-analysis.
+- `verbose`(optional): verbose mode. TRUE or FALSE
+- `ancestry`(optional) :  Ancestry indicator (ex. 1 1 1 2). Need to specify ancestry indicator from each and every cohort delimited by white-space (`' '`). Optional input for multi-ancestry meta-analysis.
 - `trait_type` : trait type (binary or continuous)
-- `groupfile` : path to the group file for gene-based analysis (Same format as SAIGE-GENE+)
-- `annotation` : functional annotation for the variants of interest. ex. c('lof', 'missense_lof')
-- `mafcutoff` : Maximum MAF for group-based analysis ex. c(0.01 0.001 0.0001)
+- `groupfile`(optional) : path to the group file for gene-based analysis (Same format as SAIGE-GENE+)
+- `annotation`(optional) : functional annotation for the variants of interest. ex. c('lof', 'missense_lof')
+- `mafcutoff`(optional) : Maximum MAF for group-based analysis ex. c(0.01 0.001 0.0001)
 
 ## CLI Usage
 Meta-SAIGE can also be run using the command line interface. The following arguments are available for running Meta-SAIGE in the command line (example provided in `extdata/test_run_GC.sh`).
@@ -116,16 +117,17 @@ Meta-SAIGE can also be run using the command line interface. The following argum
 ### Running Meta-Analysis
 - `--num_cohorts` : number of cohorts
 - `--chr` : chrmosome number
-- `--col_co` : ultra-rare variant collapsing cut-off. (default is 10)
+- `--gwas_path` : path to the GWAS summary. Need to specify GWAS summary file from each and every cohort delimited by white-space (`' '`)
 - `--info_file_path` : path to the marker_info.txt file generated from SAIGE 'step3_LDmat.R'. Need to specify marker_info.txt file from each and every cohort delimited by white-space (`' '`)
 - `--gene_file_prefix` : prefix to the LD matrix separated by genes (also generated from SAIGE `step3_LDmat.R`) usually same as marker_info.txt file's prefix
-- `--gwas_path` : path to the GWAS summary. Need to specify GWAS summary file from each and every cohort delimited by white-space (`' '`)
-- `--ancestry` :  Ancestry indicator (ex. 1 1 1 2). Need to specify ancestry indicator from each and every cohort delimited by white-space (`' '`). Optional input for multi-ancestry meta-analysis.
+- `--col_co` : ultra-rare variant collapsing cut-off. (default is 10)
 - `output_prefix`: directory for output
 - `verbose`: verbose mode. TRUE or FALSE
-- `--groupfile` : Path to the group file. This file should include gene annotations, grouping variants by genes or other relevant units (e.g., UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt).
-- `--annotation` : Annotation types, typically variant effect categories such as lof (loss of function) or missense_lof (missense and loss of function). Multiple annotations can be specified.
-- `--mafcutoff` : Minor allele frequency cutoff values. You can specify multiple thresholds (e.g., 0.01 0.001).
+- `--ancestry`(optional) :  Ancestry indicator (ex. 1 1 1 2). Need to specify ancestry indicator from each and every cohort delimited by white-space (`' '`). Optional input for multi-ancestry meta-analysis.
+- `trait_type` : trait type (binary or continuous)
+- `--groupfile`(optional) : Path to the group file. This file should include gene annotations, grouping variants by genes or other relevant units (e.g., UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt).
+- `--annotation`(optional) : Annotation types, typically variant effect categories such as lof (loss of function) or missense_lof (missense and loss of function). Multiple annotations can be specified.
+- `--mafcutoff`(optional) : Minor allele frequency cutoff values. You can specify multiple thresholds (e.g., 0.01 0.001).
 <br>
 example commands for GC-based method:
 <br>
