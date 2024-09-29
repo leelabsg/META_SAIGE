@@ -2,7 +2,7 @@ library(remotes)
 install_github('git@github.com:leelabsg/SAIGE_META.git', ref = 'man')
 library(MetaSAIGE)
 
-setwd('SAIGE_META')
+setwd('META_SAIGE')
 
 n.cohorts = 2
 chr = 7

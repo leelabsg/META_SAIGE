@@ -1,5 +1,5 @@
 #!/bin/bash
-cd SAIGE_META
+cd META_SAIGE
 
 Rscript inst/scripts/RV_meta_GC.R \
     --num_cohorts 2 \
