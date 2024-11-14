@@ -318,7 +318,10 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
                                 gwas[[cohort]]$p.value.NA = as.numeric(gwas[[cohort]]$p.value.NA)
                         n_case.vec <- c(n_case.vec, gwas[[cohort]]$N_case[1])
                         n_ctrl.vec <- c(n_ctrl.vec, gwas[[cohort]]$N_ctrl[1])
-                        n.vec <- n_case.vec + n_ctrl.vec
+
+                        # fixed by SLEE 2024/11/14
+                        #n.vec <- n_case.vec + n_ctrl.vec
+                        n.vec <- c(n.vec, n_case.vec + n_ctrl.vec)
                 }
         }
         else if(trait_type == 'continuous'){
@@ -326,7 +329,10 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
                         cat(paste0('Loading ', gwas_paths[cohort]), '\n')
 
                         gwas[[cohort]] <- fread(gwas_paths[cohort])
-                        n.vec <- gwas[[cohort]]$N[1]
+                        
+                        # fixed by SLEE 2024/11/14
+                        #n.vec <- gwas[[cohort]]$N[1]
+                        n.vec <- c(n.vec, gwas[[cohort]]$N[1])
                 }
         }
 

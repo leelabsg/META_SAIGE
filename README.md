@@ -16,7 +16,7 @@ Meta-SAIGE is a meta-analysis tool for rare variant association studies. It is d
 - `SPAtest`
 - `Matrix`
 
-### Installation
+### Installation (typically 2~3 minutes)
 
 ```
 install.packages('remotes')
@@ -160,3 +160,4 @@ Rscript inst/scripts/RV_meta_GC.R \
     --mafcutoff 0.01 0.001
 ```
 
+### Output
