@@ -321,8 +321,10 @@ load_all_cohorts <- function(n_cohorts, gwas_paths, trait_type){
 
                         # fixed by SLEE 2024/11/14
                         #n.vec <- n_case.vec + n_ctrl.vec
-                        n.vec <- c(n.vec, n_case.vec + n_ctrl.vec)
+                        # n.vec <- c(n.vec, n_case.vec + n_ctrl.vec)
                 }
+                # fixed by EPark 2024/11/29
+                n.vec <- n_case.vec + n_ctrl.vec
         }
         else if(trait_type == 'continuous'){
                 for(cohort in 1:n_cohorts){
