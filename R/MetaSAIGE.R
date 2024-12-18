@@ -98,21 +98,19 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
 
 			if(trait_type == 'binary'){
                                 ## Fixed by EPark 2024/12/03
-					# merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
-					# 																				by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-					SNP_info_gene <- SNP_info_gene %>%
-                                        mutate(Alleles_sorted = paste0(pmin(Major_Allele, Minor_Allele), "_", pmax(Major_Allele, Minor_Allele)))
-
-                                        gwas_subset <- gwas %>%
-                                        select(POS, MarkerID, Allele1, Allele2, Tstat, var, p.value, p.value.NA, Is.SPA, BETA, N_case, N_ctrl, N_case_hom, N_ctrl_hom, N_case_het, N_ctrl_het) %>%
-                                        mutate(Alleles_sorted = paste0(pmin(Allele1, Allele2), "_", pmax(Allele1, Allele2)))
-
-                                        # Perform the join
-                                        merged <- left_join(
-                                        SNP_info_gene,
-                                        gwas_subset,
-                                        by = c("POS", "Alleles_sorted")
-                                        )
+					merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
+                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
+                                        # Find the index that has NA values in the merged data
+                                        idx_na <- which(!complete.cases(merged))                                   
+                                        if (length(idx_na) > 0){
+                                                cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
+                                                tmp_merged = left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
+                                                                                                        by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
+                                                tmp_merged$Tstat = -tmp_merged$Tstat
+                                                tmp_merged$BETA = -tmp_merged$BETA
+                                                merged[idx_na,] = tmp_merged[idx_na,]
+                                                cat(length(which(!complete.cases(merged))), "Remaining number of mismatch after flipping ... \n")
+                                        }
 
                                         merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
 
@@ -132,21 +130,19 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
 
 			}else if (trait_type == 'continuous') {
                                 ## Fixed by EPark 2024/12/03
-					# merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
-					# 																				by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-					SNP_info_gene <- SNP_info_gene %>%
-                                        mutate(Alleles_sorted = paste0(pmin(Major_Allele, Minor_Allele), "_", pmax(Major_Allele, Minor_Allele)))
-
-                                        gwas_subset <- gwas %>%
-                                        select(POS, MarkerID, Allele1, Allele2, Tstat, var, p.value, BETA, N) %>%
-                                        mutate(Alleles_sorted = paste0(pmin(Allele1, Allele2), "_", pmax(Allele1, Allele2)))
-
-                                        # Perform the join
-                                        merged <- left_join(
-                                        SNP_info_gene,
-                                        gwas_subset,
-                                        by = c("POS", "Alleles_sorted")
-                                        )
+					merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
+                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
+                                        # Find the index that has NA values in the merged data
+                                        idx_na <- which(!complete.cases(merged))                                   
+                                        if (length(idx_na) > 0){
+                                                cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
+                                                tmp_merged = left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
+                                                                                                        by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
+                                                tmp_merged$Tstat = -tmp_merged$Tstat
+                                                tmp_merged$BETA = -tmp_merged$BETA
+                                                merged[idx_na,] = tmp_merged[idx_na,]
+                                                cat(length(which(is.na(merged))), "Remaining number of mismatch after flipping ... \n")
+                                        }
 
                                         merged$adj_var <- merged$Tstat^2 / qchisq(as.numeric(merged$p.value), df = 1, lower.tail = F)    
 
