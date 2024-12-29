@@ -1269,6 +1269,8 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
                         for(k in 1:Num_Collapsed){
                                 ColURV = c(ColURV, pchisq(S_M_C[k]^2/Phi_C[k,k], df=1, lower.tail = FALSE))
                         }
+                }else{
+                        ColURV = NA
                 }
                 out_Meta$ColURV =ColURV
                 out_Meta$Info_All = obj$Info_ALL
