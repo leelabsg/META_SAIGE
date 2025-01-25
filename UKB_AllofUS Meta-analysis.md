@@ -3,12 +3,14 @@
 ## Description
 To perform integrated association analysis across UKBB and AllofUS, there is a difficulty in that both platforms are not compatible for jointly using individual-level genotypes. This page describes example scripts running a meta-analysis between UKBB and AllofUS using META-SAIGE in the [AllofUS Workbench system](https://workbench.researchallofus.org/). 
 
+In this example, we are going to talk about how to run META-SAIGE for two phenotypes: T2D(250.2) and colorectal cancer(153). 
+
 ## Workflow Overview
 
 ![image](https://github.com/user-attachments/assets/f68437ba-1987-4a7e-86e1-49e51f857245)
 
-## Summary statistics generation from each cohort
-- input files description
+## Summary statistics generation from allofUS workbench
+### input files description
 1. UKB GWAS summary information
    
    Genotypes required for generation of the following information can be acquired from [UKBiobank RAP](https://ukbiobank.dnanexus.com/). 
@@ -20,7 +22,7 @@ To perform integrated association analysis across UKBB and AllofUS, there is a d
    Following is the detailed process on each step of SAIGE and META-SAIGE.
 
 
-- Helper file for running batch jobs in AllofUS dsub.
+### Helper file for running batch jobs in AllofUS dsub.
 ```
 %%writefile ~/aou_dsub.bash
 
@@ -70,7 +72,20 @@ function aou_dsub () {
       "$@"
 }
 ```
-- GWAS summary generation Step for AllofUS
+### Parameter description for dsub commands
+- `name` : job name
+- `provider` : gcp provider (usually google-cls-v2)
+- `image` : docker image identifier for gcr.io, and docker hub
+- `logging` : path to logging
+- `mount` : Designate bucket name for mount in the system
+- `boot-disk-size` : Disk size of boot
+- `disk-size ` : Disk size per machine
+- `min-ram': Minimum size of memory(GB)
+- `min-cores': Minimum number of cores
+- `task`: delimitered table file path including task parameters, environments. 
+- `command` : string command or path to bash script file for running batch jobs.
+
+### GWAS summary generation Step for AllofUS
 ```
 # Example command for SAIGE in AllofUS workbench dsub
 # Step 1: Fitting the Null Model
@@ -82,11 +97,15 @@ JOB_NAME=f'saige-step1-{USER_NAME}'
 %env JOB_NAME={JOB_NAME}
 %env PHEN={phen_name}
 
+num_traits = 2
+traits = ['250.2','153']
+
+# Parameter data frame for running batch jobs
 params_df = pd.DataFrame(data={
     '--input-recursive INPUT_DIR': [f"{bucket}/{gwas_dir}/step1_input/"]*num_traits,
     '--input-recursive GRM_DIR': [f"{bucket}/{gwas_dir}/step0_output/"]*num_traits,
     '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step1_output/"]*num_traits,
-    '--env traitType':['quantitative' if x.__contains__('f.') else 'binary' for x in traits],
+    '--env traitType':['binary' for x in traits],
     '--env invNormalize':[True if x.__contains__('f.') else False for x in traits],    
     '--env PHEN': traits
 })
@@ -96,6 +115,7 @@ PARAMETER_FILENAME = f'{JOB_NAME}_params.tsv'
 
 params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
 
+# Pruned genotypes were prepared and used from called genotypes
 job_output = !source ~/aou_dsub.bash; aou_dsub \
   --name "${JOB_NAME}_${PHEN}" \
   --provider google-cls-v2 \
@@ -179,7 +199,7 @@ job_id = job_id[1].split(" ")[-1]
 %env JOB_ID={job_id}
 ```
   
-- Sparse LD Matrix Generation
+### Sparse LD Matrix Generation
 
 ```
 cmd_line = 'step3_LDmat.R \
@@ -188,8 +208,8 @@ cmd_line = 'step3_LDmat.R \
     --sample_include_inLDMat_File=$ids \
     --AlleleOrder=ref-first \
     --chrom=$CHROM \
-    --SAIGEOutputFile=$OUT_DIR/${maf}_${anno}_chr${CHR}_loftee \
-    --groupFile=$groupFile/UKB470k_chr_${CHR}_groupfile.loftee.edit.txt \
+    --SAIGEOutputFile=$OUT_DIR/${maf}_${anno}_chr${CHR} \
+    --groupFile=$groupFile/UKB470k_chr_${CHR}_groupfile.txt \
     --annotation_in_groupTest=${annotation_in_groupTest} \
     --is_overwrite_output=TRUE \
     --maxMAF_in_groupTest=${maf} \
@@ -207,21 +227,21 @@ gwas_dir = 'SAIGE_GENE'
 exome_plink_dir = "gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/exome/plink_bed"
 
 exome_bgen_dir = "gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/exome_v7.1/bgen"
-anno = ['lof']*66+['missense_lof']*66+['missense_lof_synonymous']*66
-chr = [x+1 for x in range(22)]*9
-mafs=([0.01,0.001,0.0001])*66
+anno = ['missense_lof_synonymous']
+chr = [x+1 for x in range(22)]
+mafs=([0.01)*22
 i=0
 print(f"{bucket}/{gwas_dir}/step3_output/{mafs[i]}_{anno[i]}_chr{str(chr[i])}/")
 params_df = pd.DataFrame(data={
-    '--input ids': [f"{bucket}/{gwas_dir}/step1_input/ehr_IDs.txt" for _ in range(198)],
-    '--input bgenFile': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen" for x in range(22)]*9,
-    '--input bgenFileIndex': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen.bgi" for x in range(22)]*9,
-    '--input-recursive groupFile': [f"{bucket}/{gwas_dir}/step2_input/" for _ in range(198)],
+    '--input ids': [f"{bucket}/{gwas_dir}/step1_input/ehr_IDs.txt" for _ in range(22)],
+    '--input bgenFile': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen" for x in range(22)],
+    '--input bgenFileIndex': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen.bgi" for x in range(22)],
+    '--input-recursive groupFile': [f"{bucket}/{gwas_dir}/step2_input/" for _ in range(22)],
     '--env maf': mafs,
     '--env CHR': chr,
-    '--env CHROM': ['chr'+str(x+1) for x in range(22)]*9,
-    '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step3_output" for i in range(198)],
-    '--env annotation_in_groupTest': ['lof']*66+['missense;lof']*66+['missense;lof;synonymous']*66,
+    '--env CHROM': ['chr'+str(x+1) for x in range(22)],
+    '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step3_output" for i in range(22)],
+    '--env annotation_in_groupTest': ['missense;lof;synonymous']*22,
     '--env anno': anno
 })
 
@@ -250,41 +270,29 @@ job_id = job_id[1].split(" ")[-1]
 
 Step3 generates a sparse LD matrix for each gene using the specified gene_file_prefix. This prefix corresponds to the gene-based LD matrix files and matches the prefix of the marker_info.txt file. Additionally, Step3 produces the `marker_info.txt` file, which contains variant information within the LD matrix and serves as an input for Meta-SAIGE. Examples are provided in the `extdata/test_input` directory.
 
-## Rscript Usage
-Meta-SAIGE can be run using Rscript. The following function is available for running Meta-SAIGE in Rscript (example provided in `extdata/test_run.R`).
-
-### Running Meta-Analysis
+## Running Meta-Analysis using META-SAIGE
+This section describes running META-SAIGE. To begin with, we are ready with sparse LD generated files and single variant level summary for two cohorts.
+By providing groupfiles, one can generate all masks along with 
 ```
 cmd_line = '''
 INPUT_DIR1=${BUCKET}/SAIGE_GENE/imported/step3_docker/step3_docker/WES470k_${maf}_${anno}_chr${i}/
 INPUT_DIR2=${BUCKET}/SAIGE_GENE/step3_output/${maf}_${anno}_chr${i}/
-INPUT_DIR3=${BUCKET}/SAIGE_GENE/step3_output/afr_${maf}_${anno}_chr${i}/
-INPUT_DIR4=${BUCKET}/SAIGE_GENE/step3_output/amr_${maf}_${anno}_chr${i}/
-INPUT_GWAS1=${BUCKET}/SAIGE_GENE/imported/step2_phenome/step2/WES470k_Whites_${Phecode}_chr${i}_gene
+INPUT_GWAS1=${BUCKET}/SAIGE_GENE/imported/step2_phenome/step2/WES470k_Whites_${Phecode}_chr${i}
 INPUT_GWAS2=${BUCKET}/SAIGE_GENE/step2_output/Pheno_${Phecode}_chr${i}_step2_output_single.txt
-INPUT_GWAS3=${BUCKET}/SAIGE_GENE/step2_output/${phen}_afr_chr${i}_step2_output_single.txt
-INPUT_GWAS4=${BUCKET}/SAIGE_GENE/step2_output/${phen}_amr_chr${i}_step2_output_single.txt
-head -1 $INPUT_GWAS1 | awk 'BEGIN{OFS="\\t"}$1=$1, $3=$3' > /app/tmp_chr${i}_GWAS1.txt ; tail -n+2 $INPUT_GWAS1 | awk 'BEGIN{OFS="\\t"}$1="chr"$1, $3="chr"$3'  >> /app/tmp_chr${i}_GWAS1.txt 
-head -1 $INPUT_DIR1/WES470k_chr${i}.marker_info.txt | awk 'BEGIN{OFS="\\t"}$1="chr"$1' > /app/tmp_chr${i}_mkr_info1.txt ; tail -n+2 $INPUT_DIR1/WES470k_chr${i}.marker_info.txt | awk 'BEGIN{OFS="\\t"}$1="chr"$1' >> /app/tmp_chr${i}_mkr_info1.txt 
-awk '{if (++dup[$0] == 1) print $0;}' /app/tmp_chr${i}_GWAS1.txt > /app/ukb_dr_chr${i}_GWAS1.txt 
-head /app/ukb_dr_chr${i}_GWAS1.txt 
-head /app/tmp_chr${i}_mkr_info1.txt
+
 chrom=$i
 cd /app/
-cp ${BUCKET}/SAIGE_GENE/saige_meta_scripts/MetaSAIGE_gene_list.R ./R/MetaSAIGE.R
-cp ${BUCKET}/SAIGE_GENE/saige_meta_scripts/RV_meta_GC_gene_list.R ./inst/scripts/RV_meta_GC.R
 Rscript ./inst/scripts/RV_meta_GC.R \
     --num_cohorts 4 \
     --chr ${chrom} \
     --col_co 10 \
-    --info_file_path /app/tmp_chr${chrom}_mkr_info1.txt $INPUT_DIR2/${maf}_${anno}_chr${chrom}_loftee.marker_info.txt $INPUT_DIR3/afr_${maf}_${anno}_chr${chrom}_loftee.marker_info.txt $INPUT_DIR4/amr_${maf}_${anno}_chr${chrom}_loftee.marker_info.txt \
-    --gene_file_prefix $INPUT_DIR1/WES470k_chr${chrom}_ $INPUT_DIR2/${maf}_${anno}_chr${chrom}_loftee_ $INPUT_DIR3/afr_${maf}_${anno}_chr${chrom}_loftee_ $INPUT_DIR4/amr_${maf}_${anno}_chr${chrom}_loftee_ \
-    --gwas_path /app/ukb_dr_chr${i}_GWAS1.txt $INPUT_GWAS2 $INPUT_GWAS3 $INPUT_GWAS4 \
-    --ancestry 1 1 2 3 \
+    --info_file_path /app/tmp_chr${chrom}_mkr_info1.txt $INPUT_DIR2/${maf}_${anno}_chr${chrom}_loftee.marker_info.txt \
+    --gene_file_prefix $INPUT_DIR1/WES470k_chr${chrom}_ $INPUT_DIR2/${maf}_${anno}_chr${chrom}_loftee_ \
+    --gwas_path /app/ukb_dr_chr${i}_GWAS1.txt $INPUT_GWAS2 \
+    --groupFile=$groupFile/UKB470k_chr_${CHR}_groupfile.txt \
     --trait_type binary \
     --verbose FALSE \
-    --exclude TTN \
-    --output_prefix $OUT_DIR/Multi_ancestry_${phen}_${maf}_${anno}_chr${chrom}_all_ncohort_fix
+    --output_prefix $OUT_DIR/META_SAIGE_${phen}_${maf}_${anno}_chr${chrom}
 '''
 with open("Cmd_meta_saige_0.3.0_MA.sh", "w") as text_file:
     text_file.write(cmd_line)
@@ -310,15 +318,6 @@ params_df0 = pd.DataFrame(data={
     '--env anno': anno,
     '--env i': chrom,    
 })
-#params_df0=params_df0.loc[params_df0['--env i'].isin([1,3,7,15,16,17,19])]
-params_df0=params_df0.loc[params_df0['--env i'].isin([1])]
-params_df0=params_df0.loc[((params_df0['--env maf'].isin(['0.01','0.001'])) & (params_df0['--env anno'].isin(['missense_lof_synonymous'])))]
-#params_df0=params_df0.iloc[[0,2,11,16]]
-#params_df0 = params_df0.iloc[[8]]
-#abc=!dstat --provider google-cls-v2 --project terra-vpc-sc-a2d9bc2c --location us-central1 --jobs 'cmd-ma-rec--seokho92--241114-152605-89' --users 'seokho92' --status '*' | grep "Stopped" | awk '{print $2}'
-#abc = [int(x)-1 for x in abc]
-#print(abc)
-#params_df0 = params_df0.iloc[abc]
 
 print(params_df0.shape)
 params_df0.to_csv('saige-step4-seokho92_ma.tsv',sep = '\t', index = False)
@@ -334,12 +333,11 @@ job_id = !source ~/aou_dsub.bash; aou_dsub \
   --script "Cmd_meta_saige_0.3.0_MA.sh" \
   --min-ram 5 \
   --disk-size 20
-#print("\n".join(job_id))
-#  --min-ram 3.75 \
 job_id2 = job_id[1].split(" ")[-1]
 %env JOB_ID={job_id2}
 job_id
 ```
+### Parameter Description
 - `n.cohorts` : number of cohorts
 - `chr` : chromosome number
 - `gwas_path` : path to the GWAS summary. Need to specify GWAS summary file from each and every cohort delimited by white-space (`' '`)
