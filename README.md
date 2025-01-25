@@ -6,7 +6,7 @@ Meta-SAIGE is a meta-analysis tool for rare variant association studies. It is d
 Meta-SAIGE is applied to UKB and All of US data for the meta-analysis. 
 You can find the analysis results at PheWEB like web server(https://meta-saige.leelabsg.org/) 
 
-The 
+
 
 ## Workflow Overview
 
