@@ -5,7 +5,7 @@ To perform integrated association analysis across UKBB and AllofUS, there is a d
 
 ## Workflow Overview
 
-![screenshot](MetaSAIGE_worklow.png)
+![image](https://github.com/user-attachments/assets/f68437ba-1987-4a7e-86e1-49e51f857245)
 
 ## Summary statistics generation from each cohort
 - input files description
