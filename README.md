@@ -3,6 +3,11 @@
 ## Description
 Meta-SAIGE is a meta-analysis tool for rare variant association studies. It is designed to combine the results of multiple cohorts and perform a meta-analysis. Meta-SAIGE is built on top of SAIGE/SAIGE-GENE+ and can be used to perform meta-analysis on the summary statistics of SAIGE and LD matrix from SAIGE-GENE+.
 
+Meta-SAIGE is applied to UKB and All of US data for the meta-analysis. 
+You can find the analysis results at PheWEB like web server(https://meta-saige.leelabsg.org/) 
+
+The 
+
 ## Workflow Overview
 
 ![screenshot](MetaSAIGE_worklow.png)
