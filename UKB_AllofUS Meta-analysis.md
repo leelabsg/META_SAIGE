@@ -10,13 +10,17 @@ To perform integrated association analysis across UKBB and AllofUS, there is a d
 ## Summary statistics generation from each cohort
 - input files description
 1. UKB GWAS summary information
+   
    Genotypes required for generation of the following information can be acquired from [UKBiobank RAP](https://ukbiobank.dnanexus.com/). 
    - Single-variant Level GWAS
    - Sparse LD Matrix Generation
-2. AllofUS summary information
-   For help in using workbench and dsub commands, please refer to snippets and sample workspace provided by AllofUS
+3. AllofUS summary information
+   
+   For general help in using workbench and dsub commands, please refer to snippets and sample workspace provided by AllofUS workbench.
+   Following is the detailed process on each step of SAIGE and META-SAIGE.
 
 
+- Helper file for running batch jobs in AllofUS dsub.
 ```
 %%writefile ~/aou_dsub.bash
 
@@ -66,63 +70,181 @@ function aou_dsub () {
       "$@"
 }
 ```
-- `GWAS summary` : can be obtained from [SAIGE](https://saigegit.github.io/SAIGE-doc/docs/single.html)
+- GWAS summary generation Step for AllofUS
 ```
-# Example command for SAIGE
+# Example command for SAIGE in AllofUS workbench dsub
 # Step 1: Fitting the Null Model
+bucket = os.getenv('WORKSPACE_BUCKET')
+gwas_dir = 'SAIGE_GENE'
+USER_NAME = os.getenv('OWNER_EMAIL').split('@')[0].replace('.','-')
+%env USER_NAME={USER_NAME}
+JOB_NAME=f'saige-step1-{USER_NAME}'
+%env JOB_NAME={JOB_NAME}
+%env PHEN={phen_name}
 
-Rscript step1_fitNULLGLMM.R \
-    --sparseGRMFile=${sparse_grm_file} \                          # File containing sparse GRM (genomic relatedness matrix)
-    --sparseGRMSampleIDFile=${sparse_grm_sample_id_file} \        # File containing sample IDs for the sparse GRM
-    --useSparseGRMtoFitNULL=TRUE \                                # Use sparse GRM to fit the null model
-    --plinkFile=${plink_prefix} \                                 # Prefix for PLINK files
-    --phenoFile=${pheno_file} \                                   # File containing phenotype data
-    --phenoCol=${pheno_col} \                                     # Column name of the phenotype in the phenotype file
-    --covarColList=${covar_list} \                                # List of covariates to include in the model (comma-separated)
-    --sampleIDColinphenoFile=IND_ID \                             # Column name of the sample IDs in the phenotype file
-    --traitType=binary \                                          # Type of the trait (binary in this case)
-    --nThreads=1 \                                                # Number of threads to use (1 in this case)
-    --outputPrefix=${output_dir} \                                # Prefix for output files
-    --IsOverwriteVarianceRatioFile=TRUE \                         # Whether to overwrite existing variance ratio files
-    --LOCO=TRUE                                                   # Perform Leave-One-Chromosome-Out analysis
+params_df = pd.DataFrame(data={
+    '--input-recursive INPUT_DIR': [f"{bucket}/{gwas_dir}/step1_input/"]*num_traits,
+    '--input-recursive GRM_DIR': [f"{bucket}/{gwas_dir}/step0_output/"]*num_traits,
+    '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step1_output/"]*num_traits,
+    '--env traitType':['quantitative' if x.__contains__('f.') else 'binary' for x in traits],
+    '--env invNormalize':[True if x.__contains__('f.') else False for x in traits],    
+    '--env PHEN': traits
+})
+
+PARAMETER_FILENAME = f'{JOB_NAME}_params.tsv'
+%env PARAMETER_FILENAME={PARAMETER_FILENAME}
+
+params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
+
+job_output = !source ~/aou_dsub.bash; aou_dsub \
+  --name "${JOB_NAME}_${PHEN}" \
+  --provider google-cls-v2 \
+  --image "wzhou88/saige:1.3.0" \
+  --logging "${WORKSPACE_BUCKET}/dsub_logs/saige_step1" \
+  --boot-disk-size 50 \
+  --disk-size 128 \
+  --min-ram 32 \
+  --min-cores 8 \
+  --tasks "${PARAMETER_FILENAME}" \
+  --command 'step1_fitNULLGLMM.R \
+                --bedFile=$INPUT_DIR/pruned_arrays_eur.bed \
+                --bimFile=$INPUT_DIR/pruned_arrays_eur_new.bim \
+                --famFile=$INPUT_DIR/pruned_arrays_eur.fam \
+                --phenoFile=$INPUT_DIR/eur_basic_traits.tsv  \
+                --invNormalize=$invNormalize \
+                --phenoCol=${PHEN} \
+                --covarColList=SEX,AGE,PC1,PC2,PC3,PC4,PC5,PC6,PC7,PC8,PC9,PC10 \
+                --qCovarColList=SEX \
+                --sampleIDColinphenoFile=IID \
+                --traitType=$traitType \
+                --isCateVarianceRatio=TRUE \
+                --outputPrefix=$OUT_DIR/${PHEN}_step1_output \
+                --IsOverwriteVarianceRatioFile=TRUE \
+                --LOCO=FALSE \
+                --nThreads=8'
+job_output
 
 # Step 2: Single variant association testing
 
-Rscript step2_SPAtests.R \
-    --bedFile=${plink_prefix}.bed \                               # PLINK .bed file 
-    --bimFile=${plink_prefix}.bim \                               # PLINK .bim file 
-    --famFile=${plink_prefix}.fam \                               # PLINK .fam file 
-    --AlleleOrder=alt-first \                                     # Allele order for testing (or ref-first)
-    --SAIGEOutputFile=${output_dir}.txt \                         # Output file for SAIGE step2 results
-    --chrom=2 \                                                   # Chromosome to analyze (chromosome 2 in this case)
-    --minMAF=0 \                                                  # Minimum minor allele frequency (MAF) threshold
-    --minMAC=0.5 \                                                # Minimum minor allele count (MAC) threshold
-    --is_overwrite_output=TRUE \                                  # Whether to overwrite existing output files
-    --GMMATmodelFile=${step1_GMMATmodelFile}.rda \                # File containing the fitted null model from Step 1
-    --varianceRatioFile=${step1_varianceRatioFile}.txt \          # File containing the variance ratio from Step 1
-    --maxMAF=0.01 \                                               # Maximum minor allele frequency (MAF) threshold
-    --is_Firth_beta=TRUE \                                        # Whether to use Firth’s correction for rare variants
-    --pCutoffforFirth=0.05 \                                      # p-value cutoff for applying Firth’s correction
-    --is_output_moreDetails=TRUE \                                # Output additional details in the result file (crucial for GC-based SPA tests)
-    --max_MAC_for_ER=10 \                                         # Maximum MAC for Efficient Resampling
-    --LOCO=TRUE                                                   # Perform Leave-One-Chromosome-Out analysis
+USER_NAME = os.getenv('OWNER_EMAIL').split('@')[0].replace('.','-')
+%env USER_NAME={USER_NAME}
+JOB_NAME=f'saige-step2-{USER_NAME}'
+%env JOB_NAME={JOB_NAME}
+bucket = os.getenv('WORKSPACE_BUCKET')
+gwas_dir = 'SAIGE_GENE'
+
+
+exome_bgen_dir = "gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/exome_v7.1/bgen"
+
+params_df = pd.DataFrame(data={
+    '--input-recursive STEP1_OUT': [f"{bucket}/{gwas_dir}/step1_output" for _ in range(22*num_traits)],
+    '--input bgenFile': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen" for x in range(22)]*num_traits,
+    '--input bgenFileIndex': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen.bgi" for x in range(22)]*num_traits,
+    '--input sampleFile': [f"{exome_bgen_dir}/exome.chr{x+1}.sample" for x in range(22)]*num_traits,
+    '--input groupFile': [f"{bucket}/{gwas_dir}/step2_input/UKB470k_chr_{x+1}_groupfile.loftee.edit.txt" for x in range(22)]*num_traits,
+    '--env PHEN': [x for x in traits for _ in range(22)],
+    '--env CHROM': [x+1 for x in range(22)]*num_traits,
+    '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step2_output/" for _ in range(22*num_traits)]
+})
+
+
+PARAMETER_FILENAME = f'{JOB_NAME}_params.tsv'
+%env PARAMETER_FILENAME={PARAMETER_FILENAME}
+
+params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
+job_id = !source ~/aou_dsub.bash; aou_dsub \
+  --name "${JOB_NAME}" \
+  --provider google-cls-v2 \
+  --image "gcr.io/pheweb/saige:1.3.0" \
+  --logging "${WORKSPACE_BUCKET}/dsub_logs/saige_step2" \
+  --boot-disk-size 100 \
+  --disk-size 200 \
+  --min-ram 32 \
+  --tasks "${PARAMETER_FILENAME}" \
+  --command 'step2_SPAtests.R \
+                --bgenFile=${bgenFile} \
+                --bgenFileIndex=${bgenFileIndex} \
+                --minMAF=0 \
+                --AlleleOrder=ref-first \
+                --is_output_moreDetails=TRUE \
+                --is_overwrite_output=TRUE \
+                --chrom=chr${CHROM} \
+                --GMMATmodelFile=$STEP1_OUT/${PHEN}_step1_output.rda \
+                --varianceRatioFile=$STEP1_OUT/${PHEN}_step1_output.varianceRatio.txt \
+                --LOCO=FALSE \
+                --SAIGEOutputFile=$OUT_DIR/${PHEN}_chr${CHROM}_step2_output_single.txt \
+                '
+print("\n".join(job_id))
+job_id = job_id[1].split(" ")[-1]
+%env JOB_ID={job_id}
 ```
   
-- `LD matrix` : can be obtained from [SAIGE-GENE+](https://saigegit.github.io/SAIGE-doc/docs/set.html)
-<br>
-LD matrix could be generated by running the following command in SAIGE-GENE+:
+- Sparse LD Matrix Generation
 
 ```
-step3_LDmat.R \
-    --bedFile=${plink_file_prefix}.bed \ #For example, if the plink file is called "example", then the bed file is "example.bed"\
-    --bimFile=${plink_file_prefix}.bim \ #For example, if the plink file is called "example", then the bim file is "example.bim"\
-    --famFile=${plink_file_prefix}.fam \ #For example, if the plink file is called "example", then the fam file is "example.fam"\
-    --AlleleOrder=alt_first \ # or ref_first\
-    --SAIGEOutputFile=${SAIGE_output_file} \ #The output directory\
-    --chrom=${chromosome_number} \  #The chromosome number \
-    --groupFile=${group_file} \ #Group file for gene-based analysis. example provided in extdata/test_input/groupfiles\
-    --annotation_in_groupTest=${annotation_file} \ #Functional annotation for the variants of interest. ex. 'missense;lof', 'synonymous;lof'\
-    --maxMAF_in_groupTest=0.01 \ #Maximum MAF for group-based analysis ex. 0.01 0.001 0.0001
+cmd_line = 'step3_LDmat.R \
+    --bgenFile=${bgenFile} \
+    --bgenFileIndex=${bgenFileIndex} \
+    --sample_include_inLDMat_File=$ids \
+    --AlleleOrder=ref-first \
+    --chrom=$CHROM \
+    --SAIGEOutputFile=$OUT_DIR/${maf}_${anno}_chr${CHR}_loftee \
+    --groupFile=$groupFile/UKB470k_chr_${CHR}_groupfile.loftee.edit.txt \
+    --annotation_in_groupTest=${annotation_in_groupTest} \
+    --is_overwrite_output=TRUE \
+    --maxMAF_in_groupTest=${maf} \
+    '
+with open("Cmd_step3.sh", "w") as text_file:
+    text_file.write(cmd_line)
+
+USER_NAME = os.getenv('OWNER_EMAIL').split('@')[0].replace('.','-')
+%env USER_NAME={USER_NAME}
+JOB_NAME=f'saige-step3-{USER_NAME}'
+%env JOB_NAME={JOB_NAME}
+bucket = os.getenv('WORKSPACE_BUCKET')
+gwas_dir = 'SAIGE_GENE'
+
+exome_plink_dir = "gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/exome/plink_bed"
+
+exome_bgen_dir = "gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/exome_v7.1/bgen"
+anno = ['lof']*66+['missense_lof']*66+['missense_lof_synonymous']*66
+chr = [x+1 for x in range(22)]*9
+mafs=([0.01,0.001,0.0001])*66
+i=0
+print(f"{bucket}/{gwas_dir}/step3_output/{mafs[i]}_{anno[i]}_chr{str(chr[i])}/")
+params_df = pd.DataFrame(data={
+    '--input ids': [f"{bucket}/{gwas_dir}/step1_input/ehr_IDs.txt" for _ in range(198)],
+    '--input bgenFile': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen" for x in range(22)]*9,
+    '--input bgenFileIndex': [f"{exome_bgen_dir}/exome.chr{x+1}.bgen.bgi" for x in range(22)]*9,
+    '--input-recursive groupFile': [f"{bucket}/{gwas_dir}/step2_input/" for _ in range(198)],
+    '--env maf': mafs,
+    '--env CHR': chr,
+    '--env CHROM': ['chr'+str(x+1) for x in range(22)]*9,
+    '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step3_output" for i in range(198)],
+    '--env annotation_in_groupTest': ['lof']*66+['missense;lof']*66+['missense;lof;synonymous']*66,
+    '--env anno': anno
+})
+
+PARAMETER_FILENAME = f'{JOB_NAME}_params.tsv'
+%env PARAMETER_FILENAME={PARAMETER_FILENAME}
+
+params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
+
+job_id = !source ~/aou_dsub.bash; aou_dsub \
+  --name "${JOB_NAME}" \
+  --provider google-cls-v2 \
+  --regions us-central1 \
+  --image "wzhou88/saige:1.3.0" \
+  --logging "${WORKSPACE_BUCKET}/dsub_logs/saige_step3" \
+  --boot-disk-size 50 \
+  --disk-size 100 \
+  --min-ram 10 \
+  --tasks "${PARAMETER_FILENAME}" \
+  --script "Cmd_step3.sh"
+print("\n".join(job_id))
+job_id = job_id[1].split(" ")[-1]
+%env JOB_ID={job_id}
+
 ```
 <br>
 
@@ -133,7 +255,90 @@ Meta-SAIGE can be run using Rscript. The following function is available for run
 
 ### Running Meta-Analysis
 ```
-Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff)
+cmd_line = '''
+INPUT_DIR1=${BUCKET}/SAIGE_GENE/imported/step3_docker/step3_docker/WES470k_${maf}_${anno}_chr${i}/
+INPUT_DIR2=${BUCKET}/SAIGE_GENE/step3_output/${maf}_${anno}_chr${i}/
+INPUT_DIR3=${BUCKET}/SAIGE_GENE/step3_output/afr_${maf}_${anno}_chr${i}/
+INPUT_DIR4=${BUCKET}/SAIGE_GENE/step3_output/amr_${maf}_${anno}_chr${i}/
+INPUT_GWAS1=${BUCKET}/SAIGE_GENE/imported/step2_phenome/step2/WES470k_Whites_${Phecode}_chr${i}_gene
+INPUT_GWAS2=${BUCKET}/SAIGE_GENE/step2_output/Pheno_${Phecode}_chr${i}_step2_output_single.txt
+INPUT_GWAS3=${BUCKET}/SAIGE_GENE/step2_output/${phen}_afr_chr${i}_step2_output_single.txt
+INPUT_GWAS4=${BUCKET}/SAIGE_GENE/step2_output/${phen}_amr_chr${i}_step2_output_single.txt
+head -1 $INPUT_GWAS1 | awk 'BEGIN{OFS="\\t"}$1=$1, $3=$3' > /app/tmp_chr${i}_GWAS1.txt ; tail -n+2 $INPUT_GWAS1 | awk 'BEGIN{OFS="\\t"}$1="chr"$1, $3="chr"$3'  >> /app/tmp_chr${i}_GWAS1.txt 
+head -1 $INPUT_DIR1/WES470k_chr${i}.marker_info.txt | awk 'BEGIN{OFS="\\t"}$1="chr"$1' > /app/tmp_chr${i}_mkr_info1.txt ; tail -n+2 $INPUT_DIR1/WES470k_chr${i}.marker_info.txt | awk 'BEGIN{OFS="\\t"}$1="chr"$1' >> /app/tmp_chr${i}_mkr_info1.txt 
+awk '{if (++dup[$0] == 1) print $0;}' /app/tmp_chr${i}_GWAS1.txt > /app/ukb_dr_chr${i}_GWAS1.txt 
+head /app/ukb_dr_chr${i}_GWAS1.txt 
+head /app/tmp_chr${i}_mkr_info1.txt
+chrom=$i
+cd /app/
+cp ${BUCKET}/SAIGE_GENE/saige_meta_scripts/MetaSAIGE_gene_list.R ./R/MetaSAIGE.R
+cp ${BUCKET}/SAIGE_GENE/saige_meta_scripts/RV_meta_GC_gene_list.R ./inst/scripts/RV_meta_GC.R
+Rscript ./inst/scripts/RV_meta_GC.R \
+    --num_cohorts 4 \
+    --chr ${chrom} \
+    --col_co 10 \
+    --info_file_path /app/tmp_chr${chrom}_mkr_info1.txt $INPUT_DIR2/${maf}_${anno}_chr${chrom}_loftee.marker_info.txt $INPUT_DIR3/afr_${maf}_${anno}_chr${chrom}_loftee.marker_info.txt $INPUT_DIR4/amr_${maf}_${anno}_chr${chrom}_loftee.marker_info.txt \
+    --gene_file_prefix $INPUT_DIR1/WES470k_chr${chrom}_ $INPUT_DIR2/${maf}_${anno}_chr${chrom}_loftee_ $INPUT_DIR3/afr_${maf}_${anno}_chr${chrom}_loftee_ $INPUT_DIR4/amr_${maf}_${anno}_chr${chrom}_loftee_ \
+    --gwas_path /app/ukb_dr_chr${i}_GWAS1.txt $INPUT_GWAS2 $INPUT_GWAS3 $INPUT_GWAS4 \
+    --ancestry 1 1 2 3 \
+    --trait_type binary \
+    --verbose FALSE \
+    --exclude TTN \
+    --output_prefix $OUT_DIR/Multi_ancestry_${phen}_${maf}_${anno}_chr${chrom}_all_ncohort_fix
+'''
+with open("Cmd_meta_saige_0.3.0_MA.sh", "w") as text_file:
+    text_file.write(cmd_line)
+
+USER_NAME = os.getenv('OWNER_EMAIL').split('@')[0].replace('.','-')
+%env USER_NAME={USER_NAME}
+#bucket = os.getenv('WORKSPACE_BUCKET')
+bucket="gs://fc-secure-edebf927-ae0c-43f6-87a4-3bae475b5e9f"
+gwas_dir = 'SAIGE_GENE'
+maf=(['0.01']*22+['0.001']*22+['0.0001']*22)*6
+anno=(['lof']*66+['missense_lof']*66+['missense_lof_synonymous']*66)*2
+phen = ['T2D']*198+['colorectal']*198
+phen_ukb = ['t2d']*198+['colca']*198
+phecodes = ['250.2']*198+['153']*198
+chrom=[i for i in range(1,23)]*3*3*2
+tot_len = len(maf)
+params_df0 = pd.DataFrame(data={
+    '--env maf': maf,
+    '--env phen': phen,
+    '--env phen_ukb': phen_ukb,
+    '--output-recursive OUT_DIR': [f"{bucket}/{gwas_dir}/step4_output_recode/" for _ in range(tot_len)],
+    '--env Phecode': phecodes,
+    '--env anno': anno,
+    '--env i': chrom,    
+})
+#params_df0=params_df0.loc[params_df0['--env i'].isin([1,3,7,15,16,17,19])]
+params_df0=params_df0.loc[params_df0['--env i'].isin([1])]
+params_df0=params_df0.loc[((params_df0['--env maf'].isin(['0.01','0.001'])) & (params_df0['--env anno'].isin(['missense_lof_synonymous'])))]
+#params_df0=params_df0.iloc[[0,2,11,16]]
+#params_df0 = params_df0.iloc[[8]]
+#abc=!dstat --provider google-cls-v2 --project terra-vpc-sc-a2d9bc2c --location us-central1 --jobs 'cmd-ma-rec--seokho92--241114-152605-89' --users 'seokho92' --status '*' | grep "Stopped" | awk '{print $2}'
+#abc = [int(x)-1 for x in abc]
+#print(abc)
+#params_df0 = params_df0.iloc[abc]
+
+print(params_df0.shape)
+params_df0.to_csv('saige-step4-seokho92_ma.tsv',sep = '\t', index = False)
+%env PARAMETER_FILENAME=saige-step4-seokho92_ma.tsv
+%env JOB_NAME=Meta_MA
+job_id = !source ~/aou_dsub.bash; aou_dsub \
+  --name "${JOB_NAME}" \
+  --provider google-cls-v2 \
+  --image "gcr.io/pheweb/meta-saige:0.3.0" \
+  --logging "gs://fc-secure-edebf927-ae0c-43f6-87a4-3bae475b5e9f/dsub_logs/saige_step4" \
+  --tasks saige-step4-seokho92_ma.tsv \
+  --mount BUCKET="gs://fc-secure-edebf927-ae0c-43f6-87a4-3bae475b5e9f" \
+  --script "Cmd_meta_saige_0.3.0_MA.sh" \
+  --min-ram 5 \
+  --disk-size 20
+#print("\n".join(job_id))
+#  --min-ram 3.75 \
+job_id2 = job_id[1].split(" ")[-1]
+%env JOB_ID={job_id2}
+job_id
 ```
 - `n.cohorts` : number of cohorts
 - `chr` : chromosome number
@@ -148,54 +353,3 @@ Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, ou
 - `groupfile`(optional) : path to the group file for gene-based analysis (Same format as SAIGE-GENE+)
 - `annotation`(optional) : functional annotation for the variants of interest. ex. c('lof', 'missense_lof')
 - `mafcutoff`(optional) : Maximum MAF for group-based analysis ex. c(0.01 0.001 0.0001)
-
-## CLI Usage
-Meta-SAIGE can also be run using the command line interface. The following arguments are available for running Meta-SAIGE in the command line (example provided in `extdata/test_run_GC.sh`).
-
-### Running Meta-Analysis
-- `--num_cohorts` : number of cohorts
-- `--chr` : chrmosome number
-- `--gwas_path` : path to the GWAS summary. Need to specify GWAS summary file from each and every cohort delimited by white-space (`' '`)
-- `--info_file_path` : path to the marker_info.txt file generated from SAIGE 'step3_LDmat.R'. Need to specify marker_info.txt file from each and every cohort delimited by white-space (`' '`)
-- `--gene_file_prefix` : prefix to the LD matrix separated by genes (also generated from SAIGE `step3_LDmat.R`) usually same as marker_info.txt file's prefix
-- `--col_co` : ultra-rare variant collapsing cut-off. (default is 10)
-- `output_prefix`: directory for output
-- `verbose`: verbose mode. TRUE or FALSE
-- `--ancestry`(optional) :  Ancestry indicator (ex. 1 1 1 2). Need to specify ancestry indicator from each and every cohort delimited by white-space (`' '`). Optional input for multi-ancestry meta-analysis.
-- `trait_type` : trait type (binary or continuous)
-- `--groupfile`(optional) : Path to the group file. This file should include gene annotations, grouping variants by genes or other relevant units (e.g., UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt).
-- `--annotation`(optional) : Annotation types, typically variant effect categories such as lof (loss of function) or missense_lof (missense and loss of function). Multiple annotations can be specified.
-- `--mafcutoff`(optional) : Minor allele frequency cutoff values. You can specify multiple thresholds (e.g., 0.01 0.001).
-<br>
-example commands for GC-based method:
-<br>
-
-```
-#!/bin/bash
-cd META_SAIGE
-
-Rscript inst/scripts/RV_meta_GC.R \
-    --num_cohorts 2 \
-    --trait_type binary \
-    --chr 7 \
-    --col_co 10 \
-    --info_file_path extdata/test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt \
-    extdata/test_input/cohort2/LD_mat/cohort2_chr_7.marker_info.txt \
-    extdata/test_input/cohort2/LD_mat/cohort2_chr_7.marker_info.txt \
-    \
-    --gene_file_prefix extdata/test_input/cohort1/LD_mat/cohort1_chr_7_ \
-    extdata/test_input/cohort2/LD_mat/cohort2_chr_7_ \
-    extdata/test_input/cohort2/LD_mat/cohort2_chr_7_ \
-    \
-    --gwas_path extdata/test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt \
-    extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt \
-    extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt \
-    \
-    --output_prefix extdata/test_output/GC_t2d_chr7_0.01_missense_lof_res_CLI.txt \
-    --verbose TRUE \
-    --groupfile extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt \
-    --annotation lof missense_lof \
-    --mafcutoff 0.01 0.001
-```
-
-### Output
