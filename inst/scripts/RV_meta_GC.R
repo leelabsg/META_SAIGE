@@ -20,15 +20,17 @@ p <- add_argument(p, '--verbose', help = 'verbose', default = 'TRUE')
 p <- add_argument(p, '--groupfile', help = 'groupfile path')
 p <- add_argument(p, '--annotation', help = 'annotation type', nargs = Inf)
 p <- add_argument(p, '--mafcutoff', help = 'MAF cutoff', nargs = Inf)
+p <- add_argument(p, '--pval_cutoff', help = 'p-value cutoff for SKATO', default = 0.01)
 
 argv <- parse_args(p)
 
 argv$num_cohorts <- as.numeric(argv$num_cohorts)
 argv$col_co <- as.numeric(argv$col_co)
 argv$ancestry <- as.numeric(argv$ancestry)
-
+argv$pval_cutoff <- as.numeric(argv$pval_cutoff)
 
 source('R/MetaSAIGE.R')
+# source('/data/home/parkeunj/SAIGE_META/R/MetaSAIGE.R')
 
 n.cohorts = argv$num_cohorts
 chr = argv$chr
@@ -37,7 +39,8 @@ info_path = argv$info_file_path
 gene_file_prefix = argv$gene_file_prefix
 col_co = argv$col_co
 output_path = argv$output_prefix
-trait_type <- argv$trait_type
+trait_type = argv$trait_type
+pval_cutoff = argv$pval_cutoff
 
 # Function to process string-like variables (ancestry, groupfile, annotation)
 process_var_string <- function(x) {
@@ -68,4 +71,4 @@ annotation <- process_var_string(argv$annotation)
 mafcutoff <- process_var_numeric(argv$mafcutoff)  # Special handling for numeric mafcutoff
 
 
-Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff)
+Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff, pval_cutoff = pval_cutoff)

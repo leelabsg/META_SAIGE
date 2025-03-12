@@ -22,6 +22,7 @@
 #' @param groupfile Groupfile for functional annotation. Same format that is used for SAIGE-GENE+ (You can modify this file to select the variants of interest)
 #' @param annotation Functional annotation for multiple testing to annalyze should be parsed with '_' (e.g. c('lof', 'missense_lof'))
 #' @param mafcutoff MAF cutoff for multiple testing (e.g. c(0.01, 0.001))
+#' @param pval_cutoff P-value cutoff for SKAT-O. Default is 0.01
 #' 
 #' @return A data frame with the following columns:
 #' - CHR: Chromosome number
@@ -42,7 +43,7 @@
 #' 
 
 
-Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, trait_type = 'binary', groupfile = NULL, annotation = NULL, mafcutoff = NULL,  verbose = TRUE){
+Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, trait_type = 'binary', groupfile = NULL, annotation = NULL, mafcutoff = NULL, pval_cutoff = 0.01, verbose = TRUE){
         args <- as.list(environment())
         
         # Print each argument's name and value
@@ -219,6 +220,20 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
                 load_cohort(gwas_summary, i, gene, SNP_info[[i]], gene_file_prefix, trait_type)
                 }
 
+        #Get the highest coverage mask (Added by EJP. Could be improved)
+        max_mask_df = multiple_test[multiple_test$Var2 == max(multiple_test$Var2),]
+        max_mask_df$underscore_count <- sapply(gregexpr("_", max_mask_df$Var1), function(x) ifelse(x[1] == -1, 0, length(x)))
+        # Find the maximum count
+        max_count <- max(max_mask_df$underscore_count)
+        max_mask_df <- max_mask_df[max_mask_df$underscore_count == max_count,]
+        max_mask_anno = as.character(max_mask_df$Var1[1]) ; max_mask_maf = as.numeric(max_mask_df$Var2[1])
+        max_group = paste0(max_mask_anno, '_', max_mask_maf)
+        max_anno_vec = unlist(strsplit(max_mask_anno, '_'))
+        max_groupfile_df_gene_anno = groupfile_df_gene[groupfile_df_gene$anno %in% max_anno_vec,]
+
+        Max_OUT_Meta = Run_Meta_OneSet_Helper(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohort,
+          ancestry = ancestry, trait_type = trait_type, groupfile = max_groupfile_df_gene_anno, maf_cutoff = max_mask_maf)
+
                 for(i in 1:nrow(multiple_test)){
                         try({
                                 if(!is.null(groupfile)){
@@ -236,8 +251,7 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
                                 ###########Meta-analysis##################
                                 start_MetaOneSet <- Sys.time()
 
-                                out_adj<-Run_Meta_OneSet(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohorts,
-                                Col_Cut = col_co, GC_cutoff = 0.05, IsGet_Info_ALL=T, ancestry = ancestry, trait_type = trait_type, groupfile = groupfile_df_gene_anno, maf_cutoff = maf_test)
+                                out_adj<-Run_Meta_OneSet(OUT_Meta = Max_OUT_Meta, n.vec = n.vec, Col_Cut = col_co, IsGet_Info_ALL=T, ancestry = ancestry, trait_type = trait_type, groupfile = groupfile_df_gene_anno, maf_cutoff = maf_test, pval_cutoff = pval_cutoff)
 
                                 end_MetaOneSet <- Sys.time()
                                 cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
@@ -1109,9 +1123,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 }
 
-
-
-Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
+Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
         r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile = NULL, maf_cutoff){
         # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
         # obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
@@ -1193,7 +1205,52 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
         Phi_2_vec = Cor_S$Second_Vec * SD_M
 
         OUT_Meta<-Applying_Weighting(S_M, Phi_1, Phi_2_vec, MAF=MAF, weights.beta=weights.beta)
+        OUT_Meta$obj = obj
 
+        return(OUT_Meta)
+
+}
+
+Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile = NULL, maf_cutoff, pval_cutoff = 0.01){
+        # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
+        # obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
+
+        obj = OUT_Meta$obj
+
+
+        #Filtering out SNPs based on the annotation from groupfile
+        if(!is.null(groupfile)){
+                idx = which(obj$Info_ALL$SNPID %in% groupfile$var)
+                obj$Info_ALL = as.data.frame(obj$Info_ALL)[idx,]
+                obj$SMat_All = Matrix(as.matrix(obj$SMat_All)[idx,idx], sparse = TRUE)
+                
+                OUT_Meta$S_w = OUT_Meta$S_w[idx]
+                OUT_Meta$Phi_w1 = Matrix(as.matrix(OUT_Meta$Phi_w1[idx, idx]))
+                OUT_Meta$Phi_w2 = OUT_Meta$Phi_w2[idx]
+        }
+
+        #Filtering out SNPs based on the MAF cutoff
+        n_all = sum(n.vec)
+        MAC = obj$Info_ALL$MAC_ALL
+        MAF = MAC / n_all / 2
+
+        
+        if (!is.null(maf_cutoff) && maf_cutoff < 0.5){
+                idx_cutoff = which(MAF <= maf_cutoff)
+                if(length(idx_cutoff) > 0){
+                        obj$Info_ALL = as.data.frame(obj$Info_ALL)[idx_cutoff,]
+                        obj$SMat_All = Matrix(as.matrix(obj$SMat_All)[idx_cutoff, idx_cutoff], sparse = TRUE)
+                        MAC = as.vector(MAC)[idx_cutoff]
+                        MAF = as.vector(MAF)[idx_cutoff]
+
+                        OUT_Meta$S_w = OUT_Meta$S_w[idx_cutoff]
+                        OUT_Meta$Phi_w1 = Matrix(as.matrix(OUT_Meta$Phi_w1[idx_cutoff, idx_cutoff]))
+                        OUT_Meta$Phi_w2 = OUT_Meta$Phi_w2[idx_cutoff]
+                }
+        }
+
+        m = length(obj$Info_ALL$S_ALL)
+        nSNP = m
 
         # Collapsing
         # Implement ancestry specific collapsing
@@ -1255,7 +1312,8 @@ Run_Meta_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort
                 out_Meta<-list(p.value=p.value, test.stat=test.stat) 
         } else {
                 # Bug fix (2022-07-24, SLEE). previously collapsing wasn't applied. 
-                out_Meta<-SKAT:::SKAT_META_Optimal(Score=cbind(S_M_C), Phi=Phi_C, r.all=r.all, Score.Resampling=NULL)
+                # out_Meta<-SKAT:::SKAT_META_Optimal(Score=cbind(S_M_C), Phi=Phi_C, r.all=r.all, Score.Resampling=NULL)
+                out_Meta<-SKAT:::Met_SKAT_Get_Pvalue_Hybrid(Score=cbind(S_M_C), method = 'davies', Phi=Phi_C, r.corr=r.all, pval_cutoff=pval_cutoff)
 		
         }
         out_Meta$nSNP = length(S_M_C)
