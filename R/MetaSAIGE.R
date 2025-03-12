@@ -1262,7 +1262,7 @@ Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.
         Collapse_Ancestry=NULL
         idx_col<-which(MAC <=Col_Cut)
 
-        if(Is_ancestry){
+        if(is.vector(ancestry)){
                 ans_count=1
                 for(ances in unique(ancestry)){
                         # SNP_ID has ID_surfix for the ancestry specific ultra rare variants. 
