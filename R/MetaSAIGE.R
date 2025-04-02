@@ -96,68 +96,91 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
 		gwas = gwas_summary[[cohort]]
 
 		SNP_info_gene$Index <- SNP_info_gene$Index + 1
+                if(trait_type == 'binary'){
+                        # Convert data frames to data.tables (if not already)
+                        setDT(SNP_info_gene)
+                        setDT(gwas)
 
-			if(trait_type == 'binary'){
-                                ## Fixed by EPark 2024/12/03
-					merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
-                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-                                        # Find the index that has NA values in the merged data
-                                        idx_na <- which(!complete.cases(merged))                                   
-                                        if (length(idx_na) > 0){
-                                                cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
-                                                tmp_merged = left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
-                                                                                                        by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
-                                                tmp_merged$Tstat = -tmp_merged$Tstat
-                                                tmp_merged$BETA = -tmp_merged$BETA
-                                                merged[idx_na,] = tmp_merged[idx_na,]
-                                                cat(length(which(!complete.cases(merged))), "Remaining number of mismatch after flipping ... \n")
-                                        }
+                        # Subset the necessary columns from gwas
+                        gwas_sub <- gwas[, .(POS, MarkerID, Allele1, Allele2, Tstat, var,
+                                        `p.value`, `p.value.NA`, `Is.SPA`, BETA, 
+                                        N_case, N_ctrl, N_case_hom, N_ctrl_hom, N_case_het, N_ctrl_het)]
+                        
+                        # Subset the necessary columns from SNP_info_gene (keeping Major_Allele and Minor_Allele)
+                        SNP_info_gene <- SNP_info_gene[, .(POS, Major_Allele, Minor_Allele, MAC, Set, Index)]
+                        
+                        # First join using the standard allele orientation:
+                        # This returns all rows from SNP_info_gene with matching columns from gwas_sub.
+                        merged <- gwas_sub[SNP_info_gene, 
+                                        on = .(POS, Allele1 = Major_Allele, Allele2 = Minor_Allele)]
+                        
+                        # Identify rows with missing values (i.e. mismatches)
+                        idx_na <- which(!complete.cases(merged))
+                        if (length(idx_na) > 0) {
+                                cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
+                                
+                                # Limit the flipped join to only the rows in SNP_info_gene that correspond to idx_na.
+                                flipped_subset <- SNP_info_gene[idx_na]
+                                
+                                # Perform the flipped join on the subset:
+                                tmp_merged <- gwas_sub[flipped_subset, 
+                                                        on = .(POS, Allele2 = Major_Allele, Allele1 = Minor_Allele)]
+                                
+                                # Flip the sign for Tstat and BETA in the flipped join
+                                tmp_merged[, Tstat := -Tstat]
+                                tmp_merged[, BETA  := -BETA]
+                                
+                                # Replace mismatched rows in merged with the corrected rows from tmp_merged
+                                merged[idx_na] <- tmp_merged
+                                cat(length(which(!complete.cases(merged))), "Remaining number of mismatch after flipping ... \n")
+                        }
+                        
+                
+                        merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
 
-                                        merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
+                        merged <- na.omit(merged)
 
-					merged <- na.omit(merged)
-
-					if(nrow(merged) > 0){
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
-					} else{
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
-					}
-
-					Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
-					S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var,
-					p.value.NA = merged$p.value.NA, p.value = merged$p.value, BETA = merged$BETA, 
-					N_case = merged$N_case, N_ctrl = merged$N_ctrl, N_case_hom = merged$N_case_hom, N_ctrl_hom = merged$N_ctrl_hom, N_case_het = merged$N_case_het, N_ctrl_het = merged$N_ctrl_het, 
-					stringsAsFactors = FALSE) 
-
+                        if(nrow(merged) > 0){
+                                        IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
+                        } else{
+                                        IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
+                        }
+                        
+                        Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Allele1, MinorAllele = merged$Allele2, 
+                        S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var,
+                        p.value.NA = merged$p.value.NA, p.value = merged$p.value, BETA = merged$BETA, 
+                        N_case = merged$N_case, N_ctrl = merged$N_ctrl, N_case_hom = merged$N_case_hom, N_ctrl_hom = merged$N_ctrl_hom, N_case_het = merged$N_case_het, N_ctrl_het = merged$N_ctrl_het, 
+                        stringsAsFactors = FALSE)
+                        
 			}else if (trait_type == 'continuous') {
                                 ## Fixed by EPark 2024/12/03
-					merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
-                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-                                        # Find the index that has NA values in the merged data
-                                        idx_na <- which(!complete.cases(merged))                                   
-                                        if (length(idx_na) > 0){
-                                                cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
-                                                tmp_merged = left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
-                                                                                                        by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
-                                                tmp_merged$Tstat = -tmp_merged$Tstat
-                                                tmp_merged$BETA = -tmp_merged$BETA
-                                                merged[idx_na,] = tmp_merged[idx_na,]
-                                                cat(length(which(is.na(merged))), "Remaining number of mismatch after flipping ... \n")
-                                        }
+                                merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
+                                                                        by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
+                                # Find the index that has NA values in the merged data
+                                idx_na <- which(!complete.cases(merged))                                   
+                                if (length(idx_na) > 0){
+                                        cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
+                                        tmp_merged = left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
+                                                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
+                                        tmp_merged$Tstat = -tmp_merged$Tstat
+                                        tmp_merged$BETA = -tmp_merged$BETA
+                                        merged[idx_na,] = tmp_merged[idx_na,]
+                                        cat(length(which(is.na(merged))), "Remaining number of mismatch after flipping ... \n")
+                                }
 
-                                        merged$adj_var <- merged$Tstat^2 / qchisq(as.numeric(merged$p.value), df = 1, lower.tail = F)    
+                                merged$adj_var <- merged$Tstat^2 / qchisq(as.numeric(merged$p.value), df = 1, lower.tail = F)    
 
-					merged <- na.omit(merged)
+                                merged <- na.omit(merged)
 
-					if(nrow(merged) > 0){
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
-					} else{
-							IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
-					}
+                                if(nrow(merged) > 0){
+                                                IsExistSNV.vec <<- c(IsExistSNV.vec, 1)
+                                } else{
+                                                IsExistSNV.vec <<- c(IsExistSNV.vec, 0)
+                                }
 
-					Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
-					S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA,
-					stringsAsFactors = FALSE)   
+                                Info_adj.list[[cohort]] <<- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Allele1, MinorAllele = merged$Allele2, 
+                                S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA,
+                                stringsAsFactors = FALSE)   
 			}
 
 
@@ -1252,6 +1275,10 @@ Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.
         m = length(obj$Info_ALL$S_ALL)
         nSNP = m
 
+        if(m == 0){
+                stop("No variants left after filtering")
+        }
+
         # Collapsing
         # Implement ancestry specific collapsing
         #	
@@ -1313,6 +1340,8 @@ Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.
         } else {
                 # Bug fix (2022-07-24, SLEE). previously collapsing wasn't applied. 
                 # out_Meta<-SKAT:::SKAT_META_Optimal(Score=cbind(S_M_C), Phi=Phi_C, r.all=r.all, Score.Resampling=NULL)
+
+stop('Not computing SKAT')
                 out_Meta<-SKAT:::Met_SKAT_Get_Pvalue_Hybrid(Score=cbind(S_M_C), method = 'davies', Phi=Phi_C, r.corr=r.all, pval_cutoff=pval_cutoff)
 		
         }
