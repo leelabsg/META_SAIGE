@@ -20,17 +20,18 @@ p <- add_argument(p, '--verbose', help = 'verbose', default = 'TRUE')
 p <- add_argument(p, '--groupfile', help = 'groupfile path')
 p <- add_argument(p, '--annotation', help = 'annotation type', nargs = Inf)
 p <- add_argument(p, '--mafcutoff', help = 'MAF cutoff', nargs = Inf)
-p <- add_argument(p, '--pval_cutoff', help = 'p-value cutoff for SKATO', default = 0.01)
+p <- add_argument(p, '--include', help = 'list of genes to include', nargs = Inf)
+p <- add_argument(p, '--exclude', help = 'list of genes to exclude', nargs = Inf)
+p <- add_argument(p, '--GC_cutoff', help = 'GC cutoff, default:0.05', default=0.05)
 
 argv <- parse_args(p)
 
 argv$num_cohorts <- as.numeric(argv$num_cohorts)
 argv$col_co <- as.numeric(argv$col_co)
 argv$ancestry <- as.numeric(argv$ancestry)
-argv$pval_cutoff <- as.numeric(argv$pval_cutoff)
+
 
 source('R/MetaSAIGE.R')
-# source('/data/home/parkeunj/SAIGE_META/R/MetaSAIGE.R')
 
 n.cohorts = argv$num_cohorts
 chr = argv$chr
@@ -39,8 +40,7 @@ info_path = argv$info_file_path
 gene_file_prefix = argv$gene_file_prefix
 col_co = argv$col_co
 output_path = argv$output_prefix
-trait_type = argv$trait_type
-pval_cutoff = argv$pval_cutoff
+trait_type <- argv$trait_type
 
 # Function to process string-like variables (ancestry, groupfile, annotation)
 process_var_string <- function(x) {
@@ -69,6 +69,16 @@ ancestry <- process_var_string(argv$ancestry)
 groupfile <- process_var_string(argv$groupfile)
 annotation <- process_var_string(argv$annotation)
 mafcutoff <- process_var_numeric(argv$mafcutoff)  # Special handling for numeric mafcutoff
+exclude_genes = process_var_string(argv$exclude)
+gene_list = process_var_string(argv$include)
+GC_cutoff = process_var_numeric(argv$GC_cutoff)
 
 
-Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff, pval_cutoff = pval_cutoff)
+if(!is.null(gene_list)){
+if(file.exists(file = gene_list[[1]])){
+gene_list = fread(gene_list)[[1]]    
+}    
+}
+print(head(gene_list))
+
+Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff, gene_list = gene_list, exclude_genes = exclude_genes, GC_cutoff = GC_cutoff)
