@@ -1,0 +1,3 @@
+CHR	GENE	Group	Pval	MAC	#Rare Variants	#Ultra Rare Variants	P-value of Collapsed Ultra Rare
+7	GCK	missense_lof_0.01	0.33339052271337	347	11	0	NA
+7	GCK	Cauchy	0.33339052271337	NA	NA	NA	NA

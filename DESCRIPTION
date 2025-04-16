@@ -8,7 +8,8 @@ Imports:
     SKAT,
     SPAtest,
     Matrix,
-    argparser
+    argparser,
+    sqldf
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 VignetteBuilder: knitr
