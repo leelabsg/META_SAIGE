@@ -70,8 +70,8 @@ Rscript step2_SPAtests.R \
     --GMMATmodelFile=${step1_GMMATmodelFile}.rda \                # File containing the fitted null model from Step 1
     --varianceRatioFile=${step1_varianceRatioFile}.txt \          # File containing the variance ratio from Step 1
     --maxMAF=0.01 \                                               # Maximum minor allele frequency (MAF) threshold
-    --is_Firth_beta=TRUE \                                        # Whether to use Firth’s correction for rare variants
-    --pCutoffforFirth=0.05 \                                      # p-value cutoff for applying Firth’s correction
+    --is_Firth_beta=TRUE \                                        # Whether to use Firth's correction for rare variants
+    --pCutoffforFirth=0.05 \                                      # p-value cutoff for applying Firth's correction
     --is_output_moreDetails=TRUE \                                # Output additional details in the result file (crucial for GC-based SPA tests)
     --max_MAC_for_ER=10 \                                         # Maximum MAC for Efficient Resampling
     --LOCO=TRUE                                                   # Perform Leave-One-Chromosome-Out analysis
@@ -102,7 +102,7 @@ Meta-SAIGE can be run using Rscript. The following function is available for run
 
 ### Running Meta-Analysis
 ```
-Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff)
+Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry, trait_type, groupfile, annotation, mafcutoff, pval_cutoff = 0.01, GC_cutoff = 0.05, verbose = TRUE, selected_genes = NULL)
 ```
 - `n.cohorts` : number of cohorts
 - `chr` : chromosome number
@@ -117,6 +117,9 @@ Run_MetaSAIGE(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, ou
 - `groupfile`(optional) : path to the group file for gene-based analysis (Same format as SAIGE-GENE+)
 - `annotation`(optional) : functional annotation for the variants of interest. ex. c('lof', 'missense_lof')
 - `mafcutoff`(optional) : Maximum MAF for group-based analysis ex. c(0.01 0.001 0.0001)
+- `pval_cutoff`(optional) : P-value cutoff for SKAT-O. Default is 0.01
+- `GC_cutoff`(optional) : GC adjustment cutoff. Default is 0.05
+- `selected_genes`(optional) : Vector of gene names to analyze instead of all genes. This allows you to focus the analysis on specific genes of interest, which can significantly reduce computation time. Example: c("GCK", "APOE", "PCSK9")
 
 ## CLI Usage
 Meta-SAIGE can also be run using the command line interface. The following arguments are available for running Meta-SAIGE in the command line (example provided in `extdata/test_run_GC.sh`).
@@ -135,6 +138,10 @@ Meta-SAIGE can also be run using the command line interface. The following argum
 - `--groupfile`(optional) : Path to the group file. This file should include gene annotations, grouping variants by genes or other relevant units (e.g., UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt).
 - `--annotation`(optional) : Annotation types, typically variant effect categories such as lof (loss of function) or missense_lof (missense and loss of function). Multiple annotations can be specified.
 - `--mafcutoff`(optional) : Minor allele frequency cutoff values. You can specify multiple thresholds (e.g., 0.01 0.001).
+- `--pval_cutoff`(optional) : P-value cutoff for SKAT-O. Default is 0.01
+- `--GC_cutoff`(optional) : GC adjustment cutoff. Default is 0.05
+- `--selected_genes`(optional) : Comma-separated list of gene names to analyze instead of all genes (e.g., "GCK,APOE,PCSK9"). This allows you to focus the analysis on specific genes of interest, which can significantly reduce computation time.
+
 <br>
 example commands for GC-based method:
 <br>
@@ -165,6 +172,35 @@ Rscript inst/scripts/RV_meta_GC.R \
     --groupfile extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt \
     --annotation lof missense_lof \
     --mafcutoff 0.01 0.001
+```
+
+### Example: Running Meta-SAIGE for specific genes only
+
+```
+#!/bin/bash
+cd META_SAIGE
+
+# Analyze only the GCK gene
+Rscript inst/scripts/RV_meta_GC.R \
+    --num_cohorts 2 \
+    --trait_type binary \
+    --chr 7 \
+    --col_co 10 \
+    --info_file_path extdata/test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt \
+    extdata/test_input/cohort2/LD_mat/cohort2_chr_7.marker_info.txt \
+    \
+    --gene_file_prefix extdata/test_input/cohort1/LD_mat/cohort1_chr_7_ \
+    extdata/test_input/cohort2/LD_mat/cohort2_chr_7_ \
+    \
+    --gwas_path extdata/test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt \
+    extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt \
+    \
+    --output_prefix extdata/test_output/GC_t2d_chr7_GCK_only.txt \
+    --verbose TRUE \
+    --groupfile extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt \
+    --annotation lof missense_lof \
+    --mafcutoff 0.01 0.001 \
+    --selected_genes GCK
 ```
 
 ### Output
