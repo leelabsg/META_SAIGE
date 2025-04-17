@@ -101,6 +101,7 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
 		S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var,
 		p.value.NA = merged$p.value.NA, p.value = merged$p.value, BETA = merged$BETA, 
 		N_case = merged$N_case, N_ctrl = merged$N_ctrl, N_case_hom = merged$N_case_hom, N_ctrl_hom = merged$N_ctrl_hom, N_case_het = merged$N_case_het, N_ctrl_het = merged$N_ctrl_het, 
+                N = merged$N,
 		stringsAsFactors = FALSE) 
 
 	}else if (trait_type == 'continuous') {
@@ -131,6 +132,7 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
 
 		Info_adj.list[[cohort]] <- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
 		S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA, 
+                N = merged$N,
 		stringsAsFactors = FALSE)   
 	}
 
@@ -982,7 +984,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
         if(n.all == 0){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL <- data.frame(SNPID = character(0), IDX = integer(0), S_ALL = numeric(0), MAC_ALL = numeric(0), Var_ALL_Adj = numeric(0), Var_ALL_NoAdj = numeric(0), MajorAllele_ALL = character(0), MinorAllele_ALL = character(0), N_case_ALL = integer(0), N_ctrl_ALL = integer(0), N_case_hom_ALL = integer(0), N_ctrl_hom_ALL = integer(0), N_case_het_ALL = integer(0), N_ctrl_het_ALL = integer(0))
+                Info_ALL <- data.frame(SNPID = character(0), IDX = integer(0), S_ALL = numeric(0), MAC_ALL = numeric(0), Var_ALL_Adj = numeric(0), Var_ALL_NoAdj = numeric(0), MajorAllele_ALL = character(0), MinorAllele_ALL = character(0), N_case_ALL = integer(0), N_ctrl_ALL = integer(0), N_case_hom_ALL = integer(0), N_ctrl_hom_ALL = integer(0), N_case_het_ALL = integer(0), N_ctrl_het_ALL = integer(0), N_ALL_LD = integer(0))
                 return(list(Collapsed_SMat_ALL=SMat_All, Collapsed_Info_ALL=Info_ALL))
         }
 
@@ -991,7 +993,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
         if(trait_type == 'binary'){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
                 Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
-                , S_ALL=0, MAC_ALL=0, Var_ALL.GWAS_SPA=0, Var_ALL.GWAS_NA = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
+                , S_ALL=0, MAC_ALL=0, Var_ALL.GWAS_SPA=0, Var_ALL.GWAS_NA = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA, N_ALL_LD = 0)
 
                 for(i in 1:n.cohort){
                         if(IsExistSNV.vec[i] == 0){
@@ -1040,7 +1042,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                         Info_ALL$Var_ALL.GWAS_SPA[IDX] = Info_ALL$Var_ALL.GWAS_SPA[IDX] + data2$Var[IDX]
                         Info_ALL$Var_ALL.GWAS_NA[IDX] = Info_ALL$Var_ALL.GWAS_NA[IDX] + data2$Var_NoAdj[IDX]
                         Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-
+                        Info_ALL$N_ALL_LD[IDX] = Info_ALL$N_ALL_LD[IDX] + data2$N[IDX]
                         SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
                 }
 
@@ -1208,7 +1210,7 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
                 obj$SMat_All = Matrix(as.matrix(obj$SMat_All)[idx,idx], sparse = TRUE)
         }
 
-        n_all = sum(n.vec)
+        n_all = obj$Info_ALL$N_ALL_LD
         MAC = obj$Info_ALL$MAC_ALL
         MAF = MAC / n_all / 2
         ## Filter out SNPs with MAF > maf_cutoff

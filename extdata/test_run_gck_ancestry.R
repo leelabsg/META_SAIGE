@@ -23,7 +23,7 @@ gene_file_prefix = c('extdata/test_input/cohort1/LD_mat/cohort1_chr_7_',
                      'extdata/test_input/cohort2/LD_mat/cohort2_chr_7_')
 col_co = 10
 output_path = 'extdata/test_output/GC_t2d_chr7_GCK_ancestry.txt'
-ancestry = c(1, 1)  # Use different ancestry codes for each cohort
+ancestry = c(1, 2)  # Use different ancestry codes for each cohort
 trait_type = 'binary'
 groupfile = 'extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt'
 annotation = c('missense_lof')
@@ -42,7 +42,7 @@ Run_MetaSAIGE(
   gene_file_prefix = gene_file_prefix, 
   col_co = col_co, 
   output_path = output_path, 
-  ancestry = ancestry,  # Using numerical ancestry codes
+#   ancestry = ancestry,  # Using numerical ancestry codes
   trait_type = trait_type, 
   groupfile = groupfile, 
   annotation = annotation, 
