@@ -288,7 +288,7 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
         # Run meta-analysis helper with the highest coverage mask
         Max_OUT_Meta = Run_Meta_OneSet_Helper(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohort,
           ancestry = ancestry, trait_type = trait_type, groupfile = max_groupfile_df_gene_anno, maf_cutoff = max_mask_maf, GC_cutoff=GC_cutoff)
-
+Max_OUT_Meta <<- Max_OUT_Meta
                 # Run analyses for each annotation and MAF cutoff combination
                 for(i in 1:nrow(multiple_test)){
                         try({
@@ -1098,7 +1098,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                 # Get meta-analysis score (S_ALL) and GtG matrix
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
                 Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
-                , S_ALL=0, MAC_ALL=0, Var_ALL=0, MajorAllele_ALL = NA, MinorAllele_ALL = NA)
+                , S_ALL=0, MAC_ALL=0, Var_ALL=0, MajorAllele_ALL = NA, MinorAllele_ALL = NA, N_ALL_LD = 0)
 
                 for(i in 1:n.cohort){
 
@@ -1147,7 +1147,7 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
                         Info_ALL$S_ALL[IDX] = Info_ALL$S_ALL[IDX] + data2$S[IDX]
                         Info_ALL$Var_ALL[IDX] = Info_ALL$Var_ALL[IDX] + data2$Var[IDX]
                         Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-
+                        Info_ALL$N_ALL_LD[IDX] = Info_ALL$N_ALL_LD[IDX] + data2$N[IDX]
 
                         SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
                 }
@@ -1201,7 +1201,7 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
                 obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
         }
 
-
+obj <<- obj
         #Filtering out SNPs based on the annotation from groupfile
 
         if(!is.null(groupfile)){
@@ -1266,7 +1266,7 @@ obj <<- obj
         }
 
         #Filtering out SNPs based on the MAF cutoff
-        n_all = sum(n.vec)
+        n_all = obj$Info_ALL$N_ALL_LD
         MAC = obj$Info_ALL$MAC_ALL
         MAF = MAC / n_all / 2
 
