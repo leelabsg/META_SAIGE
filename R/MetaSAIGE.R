@@ -288,7 +288,7 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
         # Run meta-analysis helper with the highest coverage mask
         Max_OUT_Meta = Run_Meta_OneSet_Helper(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohort,
           ancestry = ancestry, trait_type = trait_type, groupfile = max_groupfile_df_gene_anno, maf_cutoff = max_mask_maf, GC_cutoff=GC_cutoff)
-Max_OUT_Meta <<- Max_OUT_Meta
+
                 # Run analyses for each annotation and MAF cutoff combination
                 for(i in 1:nrow(multiple_test)){
                         try({
@@ -1201,7 +1201,7 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
                 obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
         }
 
-obj <<- obj
+
         #Filtering out SNPs based on the annotation from groupfile
 
         if(!is.null(groupfile)){
@@ -1253,7 +1253,7 @@ Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.
 
         obj = OUT_Meta$obj
 
-obj <<- obj
+
         #Filtering out SNPs based on the annotation from groupfile
         if(!is.null(groupfile)){
                 idx = which(obj$Info_ALL$SNPID %in% groupfile$var)
