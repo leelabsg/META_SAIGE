@@ -597,7 +597,7 @@ Get_AncestrySpecific_META_Data_OneSet_NoCol <- function(SMat.list_tmp, Info.list
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
                 Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
                 , S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0, Var_ALL_NoAdj = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA,
-                N_case_ALL = 0, N_ctrl_ALL = 0, N_case_hom_ALL = 0, N_ctrl_hom_ALL = 0, N_case_het_ALL = 0, N_ctrl_het_ALL = 0)
+                N_case_ALL = 0, N_ctrl_ALL = 0, N_case_hom_ALL = 0, N_ctrl_hom_ALL = 0, N_case_het_ALL = 0, N_ctrl_het_ALL = 0, N_ALL_LD = 0)
 
                 
                 for(i in 1:n.cohort_tmp){
@@ -654,11 +654,13 @@ Get_AncestrySpecific_META_Data_OneSet_NoCol <- function(SMat.list_tmp, Info.list
                         Info_ALL$N_ctrl_hom_ALL[IDX] = Info_ALL$N_ctrl_hom_ALL[IDX] + data2$N_ctrl_hom[IDX]
                         Info_ALL$N_case_het_ALL[IDX] = Info_ALL$N_case_het_ALL[IDX] + data2$N_case_het[IDX]
                         Info_ALL$N_ctrl_het_ALL[IDX] = Info_ALL$N_ctrl_het_ALL[IDX] + data2$N_ctrl_het[IDX]
+                        Info_ALL$N_ALL_LD[IDX] = Info_ALL$N_ALL_LD[IDX] + data2$N[IDX]
 
 
                         SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
                 }
-
+Info_ALL <<- Info_ALL
+data2 <<- data2
                 Collapsed_Info_ALL <- data.frame(
                                 SNPID = as.character(as.vector(Info_ALL$SNPID)),
                                 MajorAllele = as.character(as.vector(Info_ALL$MajorAllele_ALL)),
@@ -676,7 +678,8 @@ Get_AncestrySpecific_META_Data_OneSet_NoCol <- function(SMat.list_tmp, Info.list
                                 N_case_hom = NA,
                                 N_ctrl_hom = NA,
                                 N_case_het = NA,
-                                N_ctrl_het = NA                               
+                                N_ctrl_het = NA,
+                                N = NA
                 )
                 Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
                 Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
@@ -687,7 +690,7 @@ Get_AncestrySpecific_META_Data_OneSet_NoCol <- function(SMat.list_tmp, Info.list
 
 
                 Collapsed_Info_ALL <- Collapsed_Info_ALL[,c('SNPID', 'MajorAllele', 'MinorAllele', 'S', 'MAC', 
-                        'Var', 'Var_NoAdj', 'p.value.NA', 'p.value', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')]
+                        'Var', 'Var_NoAdj', 'p.value.NA', 'p.value', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het', 'N')]
                 
         } else if (trait_type == 'continuous'){
                 SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))

@@ -42,7 +42,7 @@ Run_MetaSAIGE(
   gene_file_prefix = gene_file_prefix, 
   col_co = col_co, 
   output_path = output_path, 
-#   ancestry = ancestry,  # Using numerical ancestry codes
+  ancestry = ancestry,  # Using numerical ancestry codes
   trait_type = trait_type, 
   groupfile = groupfile, 
   annotation = annotation, 
