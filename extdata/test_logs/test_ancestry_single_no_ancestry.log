@@ -103,8 +103,8 @@ Analyzing chr  7   GCK  ....
 6 0.5642670 0.053224846
   obj$SMat_All dimensions:  87x87 
 Annotation:  lof  MAF:  0.01 
-elapsed time for Run_Meta_OneSet  0.2270353 
-Total time elapsed 0.7391386 
+elapsed time for Run_Meta_OneSet  0.1749253 
+Total time elapsed 0.6834919 
 Annotation:  missense_lof  MAF:  0.01 
-elapsed time for Run_Meta_OneSet  0.03757739 
-Total time elapsed 0.7777665 
+elapsed time for Run_Meta_OneSet  0.0665915 
+Total time elapsed 0.7523992 

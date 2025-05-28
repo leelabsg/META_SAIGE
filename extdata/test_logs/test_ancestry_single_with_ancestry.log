@@ -104,9 +104,9 @@ Analyzing chr  7   GCK  ....
   obj$SMat_All dimensions:  87x87 
 Annotation:  lof  MAF:  0.01 
 ancestry specific collapsing is applied 
-elapsed time for Run_Meta_OneSet  0.170182 
-Total time elapsed 0.6744998 
+elapsed time for Run_Meta_OneSet  0.1622694 
+Total time elapsed 0.6761475 
 Annotation:  missense_lof  MAF:  0.01 
 ancestry specific collapsing is applied 
-elapsed time for Run_Meta_OneSet  0.05088615 
-Total time elapsed 0.7270977 
+elapsed time for Run_Meta_OneSet  0.04120374 
+Total time elapsed 0.7188389 
