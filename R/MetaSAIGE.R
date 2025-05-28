@@ -169,6 +169,18 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
         cat("\n")
         }
 
+        # Added logging for single cohort and ancestry
+        if (n.cohorts == 1) {
+                cat("[MetaSAIGE Log] Analyzing a single cohort.\n")
+                if (is.null(ancestry)) {
+                        cat("[MetaSAIGE Log] No ancestry code provided for single cohort. Results ideally similar to SAIGE-GENE+ equivalent run.\n")
+                }
+        }
+        if (!is.null(ancestry)) {
+                cat(paste0("[MetaSAIGE Log] Ancestry codes provided: ", paste(ancestry, collapse=", "), ". Performing ancestry-specific analysis.\n"))
+        }
+        # End of added logging
+
         # Check if groupfile is provided and validate required parameters
         if (!is.null(groupfile)) {
                 # Assert that both annotation and mafcutoff should also be provided
@@ -1168,14 +1180,16 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
         # obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
 
         Is_ancestry =  FALSE
-        if (is.vector(ancestry)){
+        if (is.vector(ancestry) & n.cohort > 1){
                 Is_ancestry=TRUE
+                cat("[MetaSAIGE Log Helper] Ancestry vector provided. Processing for ancestry-specific data aggregation.\n")
                 SMat.list_ans<-list()
                 Info.list_ans<-list()
                 n.vec_ans<-NULL
                 IsExistSNV.vec_ans<-NULL
                         ans_count=1
                 for(ances in unique(ancestry)){
+                        cat(paste0("[MetaSAIGE Log Helper] Processing for ancestry group: ", ances, "\n"))
                         idxs = which(ancestry == ances)
                                 SMat.list_tmp = SMat.list[idxs]
                                 Info.list_tmp = Info.list[idxs]
@@ -1183,7 +1197,17 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
                                 IsExistSNV.vec_temp = IsExistSNV.vec[idxs]
                                 n.cohort_tmp=length(idxs)
 
+                                cat("[MetaSAIGE Log Helper] Calling Get_AncestrySpecific_META_Data_OneSet_NoCol for ancestry: ", ances, " with ", n.cohort_tmp, " cohort(s).\n")
                                 pop_obj = Get_AncestrySpecific_META_Data_OneSet_NoCol(SMat.list_tmp, Info.list_tmp, n.vec_temp, IsExistSNV.vec_temp, n.cohort_tmp, ances,  trait_type)
+                                
+                                cat("[MetaSAIGE Log Helper] Output from Get_AncestrySpecific_META_Data_OneSet_NoCol for ancestry: ", ances, "\n")
+                                cat("  Info_ALL dimensions: ", ifelse(is.null(pop_obj$Info_ALL), "NULL", paste(dim(pop_obj$Info_ALL), collapse="x")), "\n")
+                                if (!is.null(pop_obj$Info_ALL) && nrow(pop_obj$Info_ALL) > 0) {
+                                        cat("  Head of Info_ALL:\n")
+                                        print(head(pop_obj$Info_ALL))
+                                }
+                                cat("  SMat_All dimensions: ", ifelse(is.null(pop_obj$SMat_All), "NULL", paste(dim(pop_obj$SMat_All), collapse="x")), "\n")
+
                                 #Get_META_Data_OneSet(SMat.list_tmp , Info.list_tmp, n.vec_temp, IsExistSNV.vec_temp,  length(idxs), GC_cutoff, trait_type)
 
                                 idx_col_cut = which(pop_obj$Info_ALL$MAC <= Col_Cut)
@@ -1198,10 +1222,32 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
                                 IsExistSNV.vec_ans<-c(IsExistSNV.vec_ans, max(IsExistSNV.vec_temp)) # O or 1
                                 ans_count = ans_count+1
                 }
+                cat("[MetaSAIGE Log Helper] Calling final Get_META_Data_OneSet after ancestry processing.\n")
+                cat("  Input SMat.list_ans length: ", length(SMat.list_ans), "\n")
+                cat("  Input Info.list_ans length: ", length(Info.list_ans), "\n")
+                cat("  Input n.vec_ans: ", paste(n.vec_ans, collapse=", "), "\n")
                 obj = Get_META_Data_OneSet(SMat.list_ans, Info.list_ans, n.vec_ans, IsExistSNV.vec_ans,  n.cohort=ans_count-1, GC_cutoff=GC_cutoff, trait_type=trait_type)
+                cat("[MetaSAIGE Log Helper] Output from final Get_META_Data_OneSet (after ancestry):\n")
+                cat("  obj$Info_ALL dimensions: ", ifelse(is.null(obj$Info_ALL), "NULL", paste(dim(obj$Info_ALL), collapse="x")), "\n")
+                if (!is.null(obj$Info_ALL) && nrow(obj$Info_ALL) > 0) {
+                        cat("  Head of obj$Info_ALL:\n")
+                        print(head(obj$Info_ALL))
+                }
+                cat("  obj$SMat_All dimensions: ", ifelse(is.null(obj$SMat_All), "NULL", paste(dim(obj$SMat_All), collapse="x")), "\n")
 
         } else {
+                cat("[MetaSAIGE Log Helper] No ancestry vector provided. Calling Get_META_Data_OneSet directly.\n")
+                cat("  Input SMat.list length: ", length(SMat.list), "\n")
+                cat("  Input Info.list length: ", length(Info.list), "\n")
+                cat("  Input n.vec: ", paste(n.vec, collapse=", "), "\n")
                 obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
+                cat("[MetaSAIGE Log Helper] Output from Get_META_Data_OneSet (no ancestry):\n")
+                cat("  obj$Info_ALL dimensions: ", ifelse(is.null(obj$Info_ALL), "NULL", paste(dim(obj$Info_ALL), collapse="x")), "\n")
+                if (!is.null(obj$Info_ALL) && nrow(obj$Info_ALL) > 0) {
+                        cat("  Head of obj$Info_ALL:\n")
+                        print(head(obj$Info_ALL))
+                }
+                cat("  obj$SMat_All dimensions: ", ifelse(is.null(obj$SMat_All), "NULL", paste(dim(obj$SMat_All), collapse="x")), "\n")
         }
 
 
@@ -1328,6 +1374,7 @@ Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.
                 }
 
         }
+
 
 
         if(length(idx_col)> 0){

@@ -1,0 +1,112 @@
+Warning message:
+package ‘data.table’ was built under R version 3.6.3 
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Warning message:
+no DISPLAY variable so Tk is not available 
+Analyzing only these selected genes: GCK 
+n.cohorts:  
+[1] 1
+
+chr:  
+[1] "7"
+
+gwas_path:  
+[1] "extdata/test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt"
+
+info_path:  
+[1] "extdata/test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt"
+
+gene_file_prefix:  
+[1] "extdata/test_input/cohort1/LD_mat/cohort1_chr_7_"
+
+col_co:  
+[1] 10
+
+output_path:  
+[1] "extdata/test_output/test_ancestry_single_with_ancestry_chr7_GCK.txt"
+
+ancestry:  
+[1] "1"
+
+trait_type:  
+[1] "binary"
+
+groupfile:  
+[1] "extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt"
+
+annotation:  
+[1] "lof"          "missense_lof"
+
+mafcutoff:  
+[1] 0.01
+
+pval_cutoff:  
+[1] 0.01
+
+GC_cutoff:  
+[1] 0.05
+
+verbose:  
+[1] TRUE
+
+selected_genes:  
+[1] "GCK"
+
+[MetaSAIGE Log] Analyzing a single cohort.
+[MetaSAIGE Log] Ancestry codes provided: 1. Performing ancestry-specific analysis.
+Loading extdata/test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt 
+Analyzing 1 selected genes instead of all 879 genes
+Analyzing chr  7   GCK  ....
+1 SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... 
+1 Remaining number of mismatch after flipping ... 
+[MetaSAIGE Log Helper] No ancestry vector provided. Calling Get_META_Data_OneSet directly.
+  Input SMat.list length:  1 
+  Input Info.list length:  1 
+  Input n.vec:  81391 
+[MetaSAIGE Log Helper] Output from Get_META_Data_OneSet (no ancestry):
+  obj$Info_ALL dimensions:  87x14 
+  Head of obj$Info_ALL:
+           SNPID IDX      S_ALL MAC_ALL Var_ALL.GWAS_SPA Var_ALL.GWAS_NA
+1 7:44145143:C:T   1 -0.0606205       1      0.009329500       0.0553310
+2 7:44145148:C:A   2 -0.0810050      25      0.993205408       0.9932040
+3 7:44145170:A:T   3  0.4480110      12      0.511073704       0.5110730
+4 7:44145176:G:A   4 -0.0351322       1      0.002947269       0.0329517
+5 7:44145188:G:A   5  0.9131620       1      0.204566313       0.0772730
+6 7:44145188:G:C   6 -0.1330050       2      0.053224846       0.1195590
+  MajorAllele_ALL MinorAllele_ALL N_ALL_LD pval.GWAS_NA pval.GWAS_SPA pval.GC
+1               C               T    81657  0.796628903     0.5302590      NA
+2               C               A    81657  0.935217954     0.9352180      NA
+3               A               T    81657  0.530867717     0.5308680      NA
+4               G               A    81657  0.846537584     0.5175440      NA
+5               G               A    81657  0.001019863     0.0434899      NA
+6               G               C    81657  0.700489464     0.5642670      NA
+   pval.Adj Var_ALL.Adj
+1 0.5302590 0.009329500
+2 0.9352180 0.993205408
+3 0.5308680 0.511073704
+4 0.5175440 0.002947269
+5 0.0434899 0.204566313
+6 0.5642670 0.053224846
+  obj$SMat_All dimensions:  87x87 
+Annotation:  lof  MAF:  0.01 
+ancestry specific collapsing is applied 
+elapsed time for Run_Meta_OneSet  0.170182 
+Total time elapsed 0.6744998 
+Annotation:  missense_lof  MAF:  0.01 
+ancestry specific collapsing is applied 
+elapsed time for Run_Meta_OneSet  0.05088615 
+Total time elapsed 0.7270977 

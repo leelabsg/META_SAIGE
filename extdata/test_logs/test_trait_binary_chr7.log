@@ -1,0 +1,91 @@
+Warning message:
+package ‘data.table’ was built under R version 3.6.3 
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Warning message:
+no DISPLAY variable so Tk is not available 
+Analyzing only these selected genes: GCK 
+n.cohorts:  
+[1] 2
+
+chr:  
+[1] "7"
+
+gwas_path:  
+[1] "extdata/test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt"
+[2] "extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt"
+
+info_path:  
+[1] "extdata/test_input/cohort1/LD_mat/cohort1_chr_7.marker_info.txt"
+[2] "extdata/test_input/cohort2/LD_mat/cohort2_chr_7.marker_info.txt"
+
+gene_file_prefix:  
+[1] "extdata/test_input/cohort1/LD_mat/cohort1_chr_7_"
+[2] "extdata/test_input/cohort2/LD_mat/cohort2_chr_7_"
+
+col_co:  
+[1] 10
+
+output_path:  
+[1] "extdata/test_output/test_trait_binary_chr7_GCK.txt"
+
+ancestry:  
+NULL
+
+trait_type:  
+[1] "binary"
+
+groupfile:  
+[1] "extdata/test_input/groupfiles/UKBexomeOQFE_chr7.gene.anno.hg38_PlinkMatch_v2.txt"
+
+annotation:  
+[1] "lof"          "missense_lof"
+
+mafcutoff:  
+[1] 0.010 0.001
+
+pval_cutoff:  
+[1] 0.01
+
+GC_cutoff:  
+[1] 0.05
+
+verbose:  
+[1] TRUE
+
+selected_genes:  
+[1] "GCK"
+
+Loading extdata/test_input/cohort1/GWAS_summary/t2d_cohort1_step2_res_7.txt 
+Loading extdata/test_input/cohort2/GWAS_summary/t2d_cohort2_step2_res_7.txt 
+Analyzing 1 selected genes instead of all 879 genes
+Analyzing chr  7   GCK  ....
+1 SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... 
+1 Remaining number of mismatch after flipping ... 
+1 SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... 
+1 Remaining number of mismatch after flipping ... 
+Annotation:  lof  MAF:  0.01 
+elapsed time for Run_Meta_OneSet  0.4727607 
+Total time elapsed 1.517685 
+Annotation:  missense_lof  MAF:  0.01 
+elapsed time for Run_Meta_OneSet  0.3885748 
+Total time elapsed 1.909834 
+Annotation:  lof  MAF:  0.001 
+elapsed time for Run_Meta_OneSet  0.01452518 
+Total time elapsed 1.925551 
+Annotation:  missense_lof  MAF:  0.001 
+elapsed time for Run_Meta_OneSet  0.03847742 
+Total time elapsed 1.975279 
