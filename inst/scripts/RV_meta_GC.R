@@ -6,6 +6,7 @@ library(dplyr, quietly = TRUE)
 library(SPAtest, quietly = TRUE)
 library(SKAT, quietly = TRUE)
 library(sqldf, quietly = TRUE)
+library(rhdf5, quietly = TRUE)
 
 p <- arg_parser('Run Meta-Analysis using rare variants')
 p <- add_argument(p, '--num_cohorts', help = 'number of cohorts')
