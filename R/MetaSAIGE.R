@@ -8,6 +8,7 @@
 #' @import SKAT
 #' @import SPAtest
 #' @import argparser
+#' @import rhdf5
 
 #' @param n.cohorts Number of cohorts
 #' @param chr Chromosome number
@@ -135,9 +136,9 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
                 N = merged$N,
 		stringsAsFactors = FALSE)   
 	}
-
+        is_h5 = endsWith(gene_file_prefix[cohort], ".h5")
 	# Load and prepare the sparse matrix for LD information
-	if (file.exists(paste0(gene_file_prefix[cohort], gene, '.txt')) && length(readLines(paste0(gene_file_prefix[cohort], gene, '.txt'))) > 1) {
+	if (file.exists(paste0(gene_file_prefix[cohort], gene, '.txt')) && length(readLines(paste0(gene_file_prefix[cohort], gene, '.txt'))) > 1 && !is_h5) {
 			sparseMList = read.table(paste0(gene_file_prefix[cohort], gene, '.txt'), header = FALSE)
 			sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
 			sparseGtG <- sparseGtG[merged$Index, merged$Index]
@@ -147,8 +148,19 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
 					sparseGtG <- Matrix:::sparseMatrix(i = 1, j = 1, x = as.integer(sparseGtG))
 			}
 			SMat.list[[cohort]] <- sparseGtG
+        #added h5 option - 070925 JSH
+	} else if (is_h5 && gene %in% h5ls(gene_file_prefix[cohort], recursive = TRUE)$name) {
+			sparseMList = h5read(gene_file_prefix[cohort], gene)
+			sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList$row), j = as.vector(sparseMList$col), x = as.vector(sparseMList$val), index1= FALSE)
+			sparseGtG <- sparseGtG[merged$Index, merged$Index]
 
-	} else {
+			# Handle single value matrices
+			if (is.double(sparseGtG)){
+					sparseGtG <- Matrix:::sparseMatrix(i = 1, j = 1, x = as.integer(sparseGtG))
+			}
+			SMat.list[[cohort]] <- sparseGtG
+
+        } else {
 			# Create an empty sparse matrix if no file exists
 			SMat.list[[cohort]] <- sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(0, 0))
 	}
