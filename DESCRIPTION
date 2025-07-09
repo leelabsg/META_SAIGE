@@ -9,7 +9,10 @@ Imports:
     SPAtest,
     Matrix,
     argparser,
+    rhdf5,
     sqldf
+Remotes:
+    bioc::rhdf5
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 VignetteBuilder: knitr
