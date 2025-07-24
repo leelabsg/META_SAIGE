@@ -48,24 +48,22 @@ In this example, we are going to talk about how to run META-SAIGE for two phenot
 
 function aou_dsub () {
 
-#      --retries 5 \
-#      --wait \
   # Get a shorter username to leave more characters for the job name.
   local DSUB_USER_NAME="$(echo "${OWNER_EMAIL}" | cut -d@ -f1)"
 
   # For AoU RWB projects network name is "network".
-  local AOU_NETWORK=network
-  local AOU_SUBNETWORK=subnetwork
+  #local AOU_NETWORK=network
+  #local AOU_SUBNETWORK=subnetwork
 
   dsub \
-      --preemptible \
-      --provider google-cls-v2 \
+      --provider google-batch \
       --user-project "${GOOGLE_PROJECT}"\
       --project "${GOOGLE_PROJECT}"\
-      --image 'marketplace.gcr.io/google/ubuntu1804:latest' \
-      --network "${AOU_NETWORK}" \
-      --subnetwork "${AOU_SUBNETWORK}" \
+      --image 'ubuntu:latest' \
+      --network "global/networks/network" \
+      --subnetwork "regions/us-central1/subnetworks/subnetwork" \
       --service-account "$(gcloud config get-value account)" \
+      --use-private-address \
       --user "${DSUB_USER_NAME}" \
       --regions us-central1 \
       --logging "${WORKSPACE_BUCKET}/dsub/logs/{job-name}/{user-id}/$(date +'%Y%m%d/%H%M%S')/{job-id}-{task-id}-{task-attempt}.log" \
@@ -74,7 +72,7 @@ function aou_dsub () {
 ```
 ### Parameter description for dsub commands
 - `name` : job name
-- `provider` : gcp provider (usually google-cls-v2)
+- `provider` : gcp provider (Now google-batch)
 - `image` : docker image identifier for gcr.io, and docker hub
 - `logging` : path to logging
 - `mount` : Designate bucket name for mount in the system
@@ -118,7 +116,7 @@ params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
 # Pruned genotypes were prepared and used from called genotypes
 job_output = !source ~/aou_dsub.bash; aou_dsub \
   --name "${JOB_NAME}_${PHEN}" \
-  --provider google-cls-v2 \
+  --provider google-batch \
   --image "wzhou88/saige:1.3.0" \
   --logging "${WORKSPACE_BUCKET}/dsub_logs/saige_step1" \
   --boot-disk-size 50 \
@@ -174,7 +172,7 @@ PARAMETER_FILENAME = f'{JOB_NAME}_params.tsv'
 params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
 job_id = !source ~/aou_dsub.bash; aou_dsub \
   --name "${JOB_NAME}" \
-  --provider google-cls-v2 \
+  --provider google-batch \
   --image "gcr.io/pheweb/saige:1.3.0" \
   --logging "${WORKSPACE_BUCKET}/dsub_logs/saige_step2" \
   --boot-disk-size 100 \
@@ -252,7 +250,7 @@ params_df.to_csv(PARAMETER_FILENAME, sep='\t', index=False)
 
 job_id = !source ~/aou_dsub.bash; aou_dsub \
   --name "${JOB_NAME}" \
-  --provider google-cls-v2 \
+  --provider google-batch \
   --regions us-central1 \
   --image "wzhou88/saige:1.3.0" \
   --logging "${WORKSPACE_BUCKET}/dsub_logs/saige_step3" \
@@ -325,7 +323,7 @@ params_df0.to_csv('saige-step4-seokho92_ma.tsv',sep = '\t', index = False)
 %env JOB_NAME=Meta_MA
 job_id = !source ~/aou_dsub.bash; aou_dsub \
   --name "${JOB_NAME}" \
-  --provider google-cls-v2 \
+  --provider google-batch \
   --image "gcr.io/pheweb/meta-saige:0.3.0" \
   --logging "gs://fc-secure-edebf927-ae0c-43f6-87a4-3bae475b5e9f/dsub_logs/saige_step4" \
   --tasks saige-step4-seokho92_ma.tsv \
