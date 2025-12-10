@@ -10,8 +10,16 @@ cat ../R/MetaSAIGE.R > ./temp_MetaSAIGE.R
 
 # Create a modified version of RV_meta_GC.R that sources the temp file
 cat > ./temp_RV_meta_GC.R << 'EOL'
-packages = c('argparser', 'data.table', 'dplyr', 'SPAtest', 'SKAT', 'sqldf')
+packages = c('argparser', 'data.table', 'dplyr', 'SPAtest', 'sqldf')
 install.packages(setdiff(packages, rownames(installed.packages())), dependencies = TRUE)
+
+# Install SKAT from GitHub (not CRAN)
+if (!require('SKAT', quietly = TRUE)) {
+  if (!require('remotes', quietly = TRUE)) {
+    install.packages('remotes', repos='http://cran.rstudio.com/')
+  }
+  remotes::install_github('leelabsg/SKAT')
+}
 library(argparser, quietly = TRUE)
 library(data.table, quietly = TRUE)
 library(dplyr, quietly = TRUE)

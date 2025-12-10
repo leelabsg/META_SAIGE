@@ -19,15 +19,23 @@ The analysis results can be accessed on a PheWEB-like web server at
 - `argparser`
 - `data.table`
 - `dplyr`
-- `SKAT`
+- `SKAT` (install from GitHub: https://github.com/leelabsg/SKAT.git)
 - `SPAtest`
 - `Matrix`
 
 ### Installation (typically 2~3 minutes)
 
-```
+**Important:** The SKAT package must be installed from GitHub, not CRAN, as the CRAN version is outdated.
+
+```r
+# Install remotes if not already installed
 install.packages('remotes')
 library(remotes)
+
+# Install SKAT from GitHub (required - do not use CRAN version)
+install_github('leelabsg/SKAT')
+
+# Install MetaSAIGE
 install_github('git@github.com:leelabsg/SAIGE_META.git')
 library(MetaSAIGE)
 ```

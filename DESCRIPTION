@@ -10,6 +10,8 @@ Imports:
     Matrix,
     argparser,
     sqldf
+Remotes:
+    leelabsg/SKAT
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 VignetteBuilder: knitr
