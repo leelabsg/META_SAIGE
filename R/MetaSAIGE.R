@@ -16,7 +16,6 @@
 #' @param gene_file_prefix Prefix for gene files from SAIGE-GENE+ step3_LD_mat.R. The files should be delimited by white space ' '
 #' @param col_co Cutoff for collapsing. Default is 10
 #' @param output_path Output path for the results
-#' @param ancestry Ancestry identifier. Any numbers starting from 1 could be used to identify ancestries (e.g. 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 #' @param verbose Verbose. Default is TRUE
 #' @param trait_type Trait type. Default is 'binary'
 #' @param groupfile Groupfile for functional annotation. Same format that is used for SAIGE-GENE+ (You can modify this file to select the variants of interest)
@@ -58,6 +57,62 @@
 #' @param IsExistSNV.vec Vector to track SNV existence
 #' @return A list containing updated IsExistSNV.vec, Info_adj.list, and SMat.list
 #' @export
+# Merge per-variant GWAS columns into the SAIGE step-3 marker table by (POS, major, minor),
+# falling back to the swapped (allele1, allele2) join for mismatches and negating Tstat/BETA.
+.merge_gwas_with_flip <- function(snp_info, gwas, cols){
+        gwas_sub <- if (data.table::is.data.table(gwas)) gwas[, cols, with = FALSE] else gwas[, cols]
+        merged <- left_join(snp_info, gwas_sub,
+                            by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
+        idx_na <- which(!complete.cases(merged))
+        if (length(idx_na) > 0){
+                cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
+                tmp_merged <- left_join(snp_info, gwas_sub,
+                                        by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
+                tmp_merged$Tstat <- -tmp_merged$Tstat
+                tmp_merged$BETA  <- -tmp_merged$BETA
+                merged[idx_na, ] <- tmp_merged[idx_na, ]
+                cat(length(which(!complete.cases(merged))), "Remaining number of mismatch after flipping ... \n")
+        }
+        merged
+}
+
+# Stream the SAIGE step-3 LD triplet file once and aggregate into a collapsed k x k matrix
+# (k = n_RV + 1; column 1 = URV pseudo-variant). Returns NULL if the LD file is missing/empty.
+# See collapsed_LD_approach.html for the derivation: each triplet contributes to exactly one cell.
+.aggregate_LD_collapsed <- function(ld_file, urv_index_1based, rv_index_1based){
+        if (!file.exists(ld_file)) return(NULL)
+        sparseMList <- tryCatch(data.table::fread(ld_file, header = FALSE, data.table = FALSE),
+                                error = function(e) NULL)
+        if (is.null(sparseMList) || nrow(sparseMList) == 0) return(NULL)
+
+        n_URV <- length(urv_index_1based)
+        n_RV  <- length(rv_index_1based)
+        k     <- n_RV + 1L
+
+        urv_idx_0 <- urv_index_1based - 1L
+        rv_idx_0  <- rv_index_1based  - 1L
+        all_idx   <- c(urv_idx_0, rv_idx_0)
+        all_gid   <- c(rep(1L, n_URV), seq_len(n_RV) + 1L)
+
+        gi <- all_gid[match(sparseMList[, 1], all_idx)]
+        gj <- all_gid[match(sparseMList[, 2], all_idx)]
+        keep <- !is.na(gi) & !is.na(gj)
+        if (!any(keep)) {
+                return(Matrix::sparseMatrix(i = integer(0), j = integer(0), x = numeric(0), dims = c(k, k)))
+        }
+
+        agg <- aggregate(sparseMList[keep, 3],
+                         by = list(gi = gi[keep], gj = gj[keep]),
+                         FUN = sum)
+        colnames(agg) <- c("gi", "gj", "x")
+
+        M_raw <- Matrix::sparseMatrix(i = agg$gi, j = agg$gj, x = agg$x, dims = c(k, k))
+        # File stores one triangle: M_full = M_raw + t(M_raw) - Diagonal(diag(M_raw)).
+        sparseGtG <- M_raw + Matrix::t(M_raw)
+        Matrix::diag(sparseGtG) <- Matrix::diag(M_raw)
+        sparseGtG
+}
+
 load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, trait_type, Info_adj.list, SMat.list, IsExistSNV.vec){
 	# Extract SNPs for the specified gene from the SNP info
 	SNP_info_gene = SNPinfo[which(SNPinfo$Set == gene),]
@@ -67,119 +122,139 @@ load_cohort <- function(gwas_summary, cohort, gene, SNPinfo, gene_file_prefix, t
 	SNP_info_gene$Index <- SNP_info_gene$Index + 1
 
 	if(trait_type == 'binary'){
-                # Join SNP info with GWAS summary by position and alleles
-		merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
-                                                    by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-                # Find SNPs with allele mismatches
-                idx_na <- which(!complete.cases(merged))                                   
-                if (length(idx_na) > 0){
-                        cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
-                        # Try joining with flipped alleles for mismatched SNPs
-                        tmp_merged = left_join(SNP_info_gene, gwas[idx_na, c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')],
-                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
-                        # Flip the effect direction for properly matched SNPs
-                        tmp_merged$Tstat = -tmp_merged$Tstat
-                        tmp_merged$BETA = -tmp_merged$BETA
-                        merged[idx_na,] = tmp_merged[idx_na,]
-                        cat(length(which(!complete.cases(merged))), "Remaining number of mismatch after flipping ... \n")
+                gwas_cols_binary <- c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'p.value.NA', 'Is.SPA', 'BETA',
+                                      'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')
+
+                RV_SNPinfo_df  = SNP_info_gene[which(SNP_info_gene$MAC > 10), ]
+                URV_SNPinfo_df = SNP_info_gene[which(SNP_info_gene$MAC <= 10), ]
+
+                merged_RV  <- na.omit(.merge_gwas_with_flip(RV_SNPinfo_df,  gwas, gwas_cols_binary))
+                merged_URV <- na.omit(.merge_gwas_with_flip(URV_SNPinfo_df, gwas, gwas_cols_binary))
+
+                merged_RV$adj_var  <- merged_RV$Tstat^2  / qchisq(merged_RV$p.value,  df = 1, lower.tail = FALSE)
+                merged_URV$adj_var <- merged_URV$Tstat^2 / qchisq(merged_URV$p.value, df = 1, lower.tail = FALSE)
+
+                IsExistSNV.vec <- c(IsExistSNV.vec, as.integer(nrow(merged_RV) > 0 || nrow(merged_URV) > 0))
+
+                Info_adj_RV <- data.frame(SNPID = merged_RV$MarkerID, MajorAllele = merged_RV$Major_Allele, MinorAllele = merged_RV$Minor_Allele,
+                        S = merged_RV$Tstat, MAC = merged_RV$MAC, Var = merged_RV$adj_var, Var_NoAdj = merged_RV$var,
+                        p.value.NA = merged_RV$p.value.NA, p.value = merged_RV$p.value, BETA = merged_RV$BETA,
+                        N_case = merged_RV$N_case, N_ctrl = merged_RV$N_ctrl,
+                        N_case_hom = merged_RV$N_case_hom, N_ctrl_hom = merged_RV$N_ctrl_hom,
+                        N_case_het = merged_RV$N_case_het, N_ctrl_het = merged_RV$N_ctrl_het,
+                        N = merged_RV$N, stringsAsFactors = FALSE)
+
+                ld_file <- paste0(gene_file_prefix[cohort], gene, '.txt')
+                sparseGtG <- .aggregate_LD_collapsed(ld_file, merged_URV$Index, merged_RV$Index)
+                if (!is.null(sparseGtG)) {
+                        SMat.list[[cohort]] <- sparseGtG
+                        raw_var_URV <- as.numeric(sparseGtG[1, 1])
+                } else {
+                        SMat.list[[cohort]] <- Matrix::sparseMatrix(i = integer(0), j = integer(0), x = numeric(0), dims = c(0, 0))
+                        raw_var_URV <- sum(merged_URV$adj_var)
                 }
 
-                # Calculate adjusted variance
-                merged$adj_var <- merged$Tstat^2 / qchisq(merged$p.value, df = 1, lower.tail = F)
+                # URV pseudo-variant info for binary: schema mirrors the RV rows so downstream merges
+                # (Get_META_Data_OneSet / GC correction) see consistent columns.
+                n_URV <- nrow(merged_URV)
+                Tstat_sum_URV <- sum(merged_URV$Tstat)
+                if (n_URV > 0 && is.finite(raw_var_URV) && raw_var_URV > 0) {
+                        p_collapsed       <- pchisq(Tstat_sum_URV^2 / raw_var_URV, df = 1, lower.tail = FALSE)
+                        adj_var_collapsed <- Tstat_sum_URV^2 / qchisq(p_collapsed, df = 1, lower.tail = FALSE)
+                } else {
+                        p_collapsed       <- NA_real_
+                        adj_var_collapsed <- NA_real_
+                }
 
-		merged <- na.omit(merged)
+                Info_adj_URV <- data.frame(SNPID = 'COLLAPSED_URV', MajorAllele = 'X', MinorAllele = 'Z',
+                        S = Tstat_sum_URV, MAC = sum(merged_URV$MAC),
+                        Var = adj_var_collapsed,
+                        Var_NoAdj = sum(merged_URV$var),
+                        p.value.NA = p_collapsed,
+                        p.value    = p_collapsed,
+                        BETA = sign(Tstat_sum_URV),
+                        N_case = if (n_URV > 0) merged_URV$N_case[1] else NA_integer_,
+                        N_ctrl = if (n_URV > 0) merged_URV$N_ctrl[1] else NA_integer_,
+                        N_case_hom = sum(merged_URV$N_case_hom),
+                        N_ctrl_hom = sum(merged_URV$N_ctrl_hom),
+                        N_case_het = sum(merged_URV$N_case_het),
+                        N_ctrl_het = sum(merged_URV$N_ctrl_het),
+                        N = if (n_URV > 0) merged_URV$N[1] else NA_integer_,
+                        stringsAsFactors = FALSE)
 
-		# Track whether SNVs exist for this gene/cohort
-		if(nrow(merged) > 0){
-				IsExistSNV.vec <- c(IsExistSNV.vec, 1)
-		} else{
-				IsExistSNV.vec <- c(IsExistSNV.vec, 0)
-		}
-
-		# Store the adjusted information for this cohort
-		Info_adj.list[[cohort]] <- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
-		S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var,
-		p.value.NA = merged$p.value.NA, p.value = merged$p.value, BETA = merged$BETA, 
-		N_case = merged$N_case, N_ctrl = merged$N_ctrl, N_case_hom = merged$N_case_hom, N_ctrl_hom = merged$N_ctrl_hom, N_case_het = merged$N_case_het, N_ctrl_het = merged$N_ctrl_het, 
-                N = merged$N,
-		stringsAsFactors = FALSE) 
+                Info_adj.list[[cohort]] <- rbind(Info_adj_URV, Info_adj_RV)
 
 	}else if (trait_type == 'continuous') {
-                # Similar process for continuous traits with fewer columns
-		merged <- left_join(SNP_info_gene, gwas[,c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
-                                                    by = c('POS' = 'POS', 'Major_Allele' = 'Allele1', 'Minor_Allele' = 'Allele2'))
-                # Handle allele mismatches
-                idx_na <- which(!complete.cases(merged))                                   
-                if (length(idx_na) > 0){
-                        cat(length(idx_na), "SNPs had mismatch between LDmatrix and GWAS summary ... Flipping GWAS summary ... \n")
-                        tmp_merged = left_join(SNP_info_gene, gwas[idx_na, c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')],
-                                                                by = c('POS' = 'POS', 'Major_Allele' = 'Allele2', 'Minor_Allele' = 'Allele1'))
-                        tmp_merged$Tstat = -tmp_merged$Tstat
-                        tmp_merged$BETA = -tmp_merged$BETA
-                        merged[idx_na,] = tmp_merged[idx_na,]
-                        cat(length(which(is.na(merged))), "Remaining number of mismatch after flipping ... \n")
+                gwas_cols_continuous <- c('POS', 'MarkerID', 'Allele1', 'Allele2', 'Tstat', 'var', 'p.value', 'BETA')
+
+                RV_SNPinfo_df  = SNP_info_gene[which(SNP_info_gene$MAC > 10), ]
+                URV_SNPinfo_df = SNP_info_gene[which(SNP_info_gene$MAC <= 10), ]
+
+                merged_RV  <- na.omit(.merge_gwas_with_flip(RV_SNPinfo_df,  gwas, gwas_cols_continuous))
+                merged_URV <- na.omit(.merge_gwas_with_flip(URV_SNPinfo_df, gwas, gwas_cols_continuous))
+
+                merged_RV$adj_var  <- merged_RV$Tstat^2  / qchisq(as.numeric(merged_RV$p.value),  df = 1, lower.tail = FALSE)
+                merged_URV$adj_var <- merged_URV$Tstat^2 / qchisq(as.numeric(merged_URV$p.value), df = 1, lower.tail = FALSE)
+
+                IsExistSNV.vec <- c(IsExistSNV.vec, as.integer(nrow(merged_RV) > 0 || nrow(merged_URV) > 0))
+
+                Info_adj_RV <- data.frame(SNPID = merged_RV$MarkerID, MajorAllele = merged_RV$Major_Allele, MinorAllele = merged_RV$Minor_Allele,
+                        S = merged_RV$Tstat, MAC = merged_RV$MAC, Var = merged_RV$adj_var, Var_NoAdj = merged_RV$var,
+                        p.value = merged_RV$p.value, BETA = merged_RV$BETA, N = merged_RV$N,
+                        stringsAsFactors = FALSE)
+
+                n_URV <- nrow(merged_URV)
+                n_RV  <- nrow(merged_RV)
+                ld_file <- paste0(gene_file_prefix[cohort], gene, '.txt')
+                sparseGtG <- .aggregate_LD_collapsed(ld_file, merged_URV$Index, merged_RV$Index)
+
+                if (!is.null(sparseGtG)) {
+                        SMat.list[[cohort]] <- sparseGtG
+                        raw_var_URV <- as.numeric(sparseGtG[1, 1])
+                } else {
+                        SMat.list[[cohort]] <- Matrix::sparseMatrix(i = integer(0), j = integer(0), x = numeric(0), dims = c(0, 0))
+                        raw_var_URV <- sum(merged_URV$adj_var)
                 }
 
-                merged$adj_var <- merged$Tstat^2 / qchisq(as.numeric(merged$p.value), df = 1, lower.tail = F)    
+                # URV pseudo-variant: raw var from M[1,1]; p-value derived from it.
+                # adj_var = Tstat^2 / qchisq(p, 1, lower=F) reduces to raw_var_URV by chi-sq invertibility.
+                Tstat_sum_URV <- sum(merged_URV$Tstat)
+                if (n_URV > 0 && is.finite(raw_var_URV) && raw_var_URV > 0) {
+                        p_collapsed       <- pchisq(Tstat_sum_URV^2 / raw_var_URV, df = 1, lower.tail = FALSE)
+                        adj_var_collapsed <- Tstat_sum_URV^2 / qchisq(p_collapsed, df = 1, lower.tail = FALSE)
+                } else {
+                        p_collapsed       <- NA_real_
+                        adj_var_collapsed <- NA_real_
+                }
 
-		merged <- na.omit(merged)
+                Info_adj_URV <- data.frame(SNPID = 'COLLAPSED_URV', MajorAllele = 'X', MinorAllele = 'Z',
+                        S = Tstat_sum_URV, MAC = sum(merged_URV$MAC),
+                        Var = adj_var_collapsed,
+                        Var_NoAdj = sum(merged_URV$var),
+                        p.value = p_collapsed,
+                        BETA = sign(Tstat_sum_URV),
+                        N = if (n_URV > 0) merged_URV$N[1] else NA_integer_,
+                        stringsAsFactors = FALSE)
 
-		if(nrow(merged) > 0){
-				IsExistSNV.vec <- c(IsExistSNV.vec, 1)
-		} else{
-				IsExistSNV.vec <- c(IsExistSNV.vec, 0)
-		}
-
-		Info_adj.list[[cohort]] <- data.frame(SNPID = merged$MarkerID, MajorAllele = merged$Major_Allele, MinorAllele = merged$Minor_Allele, 
-		S = merged$Tstat, MAC = merged$MAC, Var = merged$adj_var, Var_NoAdj = merged$var, p.value = merged$p.value, BETA = merged$BETA, 
-                N = merged$N,
-		stringsAsFactors = FALSE)   
+                Info_adj.list[[cohort]] <- rbind(Info_adj_URV, Info_adj_RV)
 	}
 
-	# Load and prepare the sparse matrix for LD information
-	if (file.exists(paste0(gene_file_prefix[cohort], gene, '.txt')) && length(readLines(paste0(gene_file_prefix[cohort], gene, '.txt'))) > 1) {
-			sparseMList = read.table(paste0(gene_file_prefix[cohort], gene, '.txt'), header = FALSE)
-			sparseGtG = Matrix:::sparseMatrix(i = as.vector(sparseMList[,1]), j = as.vector(sparseMList[,2]), x = as.vector(sparseMList[,3]), index1= FALSE)
-			sparseGtG <- sparseGtG[merged$Index, merged$Index]
-
-			# Handle single value matrices
-			if (is.double(sparseGtG)){
-					sparseGtG <- Matrix:::sparseMatrix(i = 1, j = 1, x = as.integer(sparseGtG))
-			}
-			SMat.list[[cohort]] <- sparseGtG
-
-	} else {
-			# Create an empty sparse matrix if no file exists
-			SMat.list[[cohort]] <- sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(0, 0))
-	}
-    
-    # Return all updated lists and vectors
-    return(list(IsExistSNV.vec = IsExistSNV.vec, 
-                Info_adj.list = Info_adj.list, 
+    return(list(IsExistSNV.vec = IsExistSNV.vec,
+                Info_adj.list = Info_adj.list,
                 SMat.list = SMat.list))
 }
 
-Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, ancestry = NULL, trait_type = 'binary', groupfile = NULL, annotation = NULL, mafcutoff = NULL, pval_cutoff = 0.01, GC_cutoff=0.05, verbose = TRUE, selected_genes = NULL){
+Run_GbasedSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix, col_co, output_path, trait_type = 'binary', groupfile = NULL, annotation = NULL, mafcutoff = NULL, pval_cutoff = 0.01, GC_cutoff=0.05, verbose = TRUE, selected_genes = NULL){
+        if (!is.numeric(n.cohorts) || length(n.cohorts) != 1 || n.cohorts != 1) {
+                stop("Run_GbasedSAIGE is a single-cohort entry point; --num_cohorts must be 1. ",
+                     "For multi-cohort meta-analysis use the upstream MetaSAIGE pipeline.")
+        }
         args <- as.list(environment())
-        
-        # Print each argument's name and value for debugging
         for (name in names(args)) {
-        cat(paste0(name, ": "), "\n")
-        print(args[[name]])
-        cat("\n")
+                cat(paste0(name, ": "), "\n")
+                print(args[[name]])
+                cat("\n")
         }
-
-        # Added logging for single cohort and ancestry
-        if (n.cohorts == 1) {
-                cat("[MetaSAIGE Log] Analyzing a single cohort.\n")
-                if (is.null(ancestry)) {
-                        cat("[MetaSAIGE Log] No ancestry code provided for single cohort. Results ideally similar to SAIGE-GENE+ equivalent run.\n")
-                }
-        }
-        if (!is.null(ancestry)) {
-                cat(paste0("[MetaSAIGE Log] Ancestry codes provided: ", paste(ancestry, collapse=", "), ". Performing ancestry-specific analysis.\n"))
-        }
-        # End of added logging
 
         # Check if groupfile is provided and validate required parameters
         if (!is.null(groupfile)) {
@@ -299,7 +374,7 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
 
         # Run meta-analysis helper with the highest coverage mask
         Max_OUT_Meta = Run_Meta_OneSet_Helper(SMat.list, Info_adj.list, n.vec=n.vec, IsExistSNV.vec=IsExistSNV.vec, n.cohort=n.cohort,
-          ancestry = ancestry, trait_type = trait_type, groupfile = max_groupfile_df_gene_anno, maf_cutoff = max_mask_maf, GC_cutoff=GC_cutoff)
+          trait_type = trait_type, groupfile = max_groupfile_df_gene_anno, maf_cutoff = max_mask_maf, GC_cutoff=GC_cutoff)
 
                 # Run analyses for each annotation and MAF cutoff combination
                 for(i in 1:nrow(multiple_test)){
@@ -319,7 +394,7 @@ Run_MetaSAIGE <- function(n.cohorts, chr, gwas_path, info_path, gene_file_prefix
                                 # Perform meta-analysis for this annotation/MAF combination
                                 start_MetaOneSet <- Sys.time()
 
-                                out_adj<-Run_Meta_OneSet(OUT_Meta = Max_OUT_Meta, n.vec = n.vec, Col_Cut = col_co, IsGet_Info_ALL=T, ancestry = ancestry, trait_type = trait_type, groupfile = groupfile_df_gene_anno, maf_cutoff = maf_test, pval_cutoff = pval_cutoff)
+                                out_adj<-Run_Meta_OneSet(OUT_Meta = Max_OUT_Meta, n.vec = n.vec, Col_Cut = col_co, IsGet_Info_ALL=T, trait_type = trait_type, groupfile = groupfile_df_gene_anno, maf_cutoff = maf_test, pval_cutoff = pval_cutoff)
 
                                 end_MetaOneSet <- Sys.time()
                                 cat('elapsed time for Run_Meta_OneSet ', end_MetaOneSet - start_MetaOneSet , '\n')
@@ -520,19 +595,6 @@ Get_Collabsing<-function(nSNP, SNP_list){
 
 
 
-#Bug fix (2022-07-18). Previously G_LD1 and n1 were used (instead of G_LD and n)
-Get_Cor<-function(G_LD, MAF, n){
-  
-  
-  Cov_1 = G_LD/n - MAF %*% t(MAF) *4
-  Cov_1_div = 1/sqrt(diag(Cov_1))
-  Cor_1 = t(t(Cov_1) * Cov_1_div) * Cov_1_div
-  
-  return(Cor_1)
-  
-}
-
-
 Get_Cor_Sparse<-function(GtG_Sparse, MAF, n){
 	#check whether G_LD is the sparse matrix. If not return ERROR
 
@@ -585,395 +647,8 @@ Flip_Genotypes<-function(SMat, MAC, n1, idx_flip){
 
 }
 
-Get_AncestrySpecific_META_Data_OneSet_NoCol <- function(SMat.list_tmp, Info.list_tmp, n.vec, IsExistSNV.vec, n.cohort_tmp, ances,  trait_type){
-	SnpID.all<-NULL
-	n_case <- 0 ; n_ctrl <- 0
-	for(i in 1:n.cohort_tmp){
-		if(IsExistSNV.vec[i] == 1){
-			SnpID.all<-union(SnpID.all, Info.list_tmp[[i]]$SNPID)
-			n_case <- Info.list_tmp[[i]]$N_case[1] + n_case
-			n_ctrl <- Info.list_tmp[[i]]$N_ctrl[1] + n_ctrl
-		}
-	}
-	SnpID.all<-unique(SnpID.all)
-	n.all<-length(SnpID.all)
-
-        if(n.all == 0){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL <- data.frame(SNPID = character(0), IDX = integer(0), S_ALL = numeric(0), MAC_ALL = numeric(0), Var_ALL_Adj = numeric(0), Var_ALL_NoAdj = numeric(0), MajorAllele_ALL = character(0), MinorAllele_ALL = character(0), N_case_ALL = integer(0), N_ctrl_ALL = integer(0), N_case_hom_ALL = integer(0), N_ctrl_hom_ALL = integer(0), N_case_het_ALL = integer(0), N_ctrl_het_ALL = integer(0))
-                return(list(Collapsed_SMat_ALL=SMat_All, Collapsed_Info_ALL=Info_ALL))
-        }
-
-	# Get meta-analysis score (S_ALL) and GtG matrix
-        if(trait_type == 'binary'){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
-                , S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0, Var_ALL_NoAdj = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA,
-                N_case_ALL = 0, N_ctrl_ALL = 0, N_case_hom_ALL = 0, N_ctrl_hom_ALL = 0, N_case_het_ALL = 0, N_ctrl_het_ALL = 0, N_ALL_LD = 0)
-
-                
-                for(i in 1:n.cohort_tmp){
-                                
-                        if(IsExistSNV.vec[i] == 0){
-                                next
-                        }	
-                        
-                        data1<-Info.list_tmp[[i]]
-                        data1$IDX1<-1:nrow(data1)
-                        data2.org<-merge(Info_ALL, data1, by.x="SNPID", by.y="SNPID", all.x=TRUE)
-                                
-                        #data2.org1<<-data2.org
-                        data2<-data2.org[order(data2.org$IDX),]
-
-                        # IDX: SNPs in SNP_ALL, IDX1: index in each cohort			
-                        IDX<-which(!is.na(data2$IDX1))
-                        IDX1<-data2$IDX1[IDX]
-
-                        # Find Major alleles not be included previously
-                        id1<-intersect(which(is.na(data2$MajorAllele_ALL)), which(!is.na(data2$MajorAllele)))
-                        if(length(id1)> 0){
-                                Info_ALL$MajorAllele_ALL[id1] = data2$MajorAllele[id1]
-                                Info_ALL$MinorAllele_ALL[id1] = data2$MinorAllele[id1]
-                        }
-                        
-                        # Flip the genotypes, major alleles are different
-                        compare<-Info_ALL$MajorAllele_ALL == data2$MajorAllele
-                        id2 = which(!compare)
-                        if(length(id2)> 0){
-                                data2$S[id2] = -data2$S[id2]
-                                n1 = n.vec[i]
-                                
-                                MAC = data2$MAC[IDX]
-                                idx_flip = data2$IDX1[id2]
-                                OUT_Flip = Flip_Genotypes(SMat.list_tmp[[i]][IDX1,IDX1], MAC, n1, idx_flip)
-                                
-                                SMat_1 = OUT_Flip$SMat
-                                data2$MAC[IDX] = OUT_Flip$MAC 	
-                        } else {
-                        
-                                SMat_1 = SMat.list_tmp[[i]][IDX1,IDX1]
-                        
-                        }
-                        
-                        # Update Info
-                        Info_ALL$S_ALL[IDX] = Info_ALL$S_ALL[IDX] + data2$S[IDX]
-                        Info_ALL$Var_ALL_Adj[IDX] = Info_ALL$Var_ALL_Adj[IDX] + data2$Var[IDX]
-                        Info_ALL$Var_ALL_NoAdj[IDX] = Info_ALL$Var_ALL_NoAdj[IDX] + data2$Var_NoAdj[IDX]
-                        Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-                        Info_ALL$N_case_ALL[IDX] = n_case
-                        Info_ALL$N_ctrl_ALL[IDX] = n_ctrl
-                        Info_ALL$N_case_hom_ALL[IDX] = Info_ALL$N_case_hom_ALL[IDX] + data2$N_case_hom[IDX]
-                        Info_ALL$N_ctrl_hom_ALL[IDX] = Info_ALL$N_ctrl_hom_ALL[IDX] + data2$N_ctrl_hom[IDX]
-                        Info_ALL$N_case_het_ALL[IDX] = Info_ALL$N_case_het_ALL[IDX] + data2$N_case_het[IDX]
-                        Info_ALL$N_ctrl_het_ALL[IDX] = Info_ALL$N_ctrl_het_ALL[IDX] + data2$N_ctrl_het[IDX]
-                        Info_ALL$N_ALL_LD[IDX] = Info_ALL$N_ALL_LD[IDX] + data2$N[IDX]
 
 
-                        SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
-                }
-Info_ALL <<- Info_ALL
-data2 <<- data2
-                Collapsed_Info_ALL <- data.frame(
-                                SNPID = as.character(as.vector(Info_ALL$SNPID)),
-                                MajorAllele = as.character(as.vector(Info_ALL$MajorAllele_ALL)),
-                                MinorAllele = as.character(as.vector(Info_ALL$MinorAllele_ALL)),
-                                S = Info_ALL$S_ALL,
-                                MAC = Info_ALL$MAC_ALL,
-                                Var = Info_ALL$Var_ALL_Adj,
-                                Var_NoAdj = Info_ALL$Var_ALL_NoAdj,
-                                N_case = n_case,
-                                N_ctrl = n_ctrl,
-                                # N_case_hom = as.vector(Collapse_Matrix %*% Info_ALL$N_case_hom_ALL),
-                                # N_ctrl_hom = as.vector(Collapse_Matrix %*% Info_ALL$N_ctrl_hom_ALL),
-                                # N_case_het = as.vector(Collapse_Matrix %*% Info_ALL$N_case_het_ALL),
-                                # N_ctrl_het = as.vector(Collapse_Matrix %*% Info_ALL$N_ctrl_het_ALL)
-                                N_case_hom = NA,
-                                N_ctrl_hom = NA,
-                                N_case_het = NA,
-                                N_ctrl_het = NA,
-                                N = NA
-                )
-                Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
-                Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
-                Collapsed_Info_ALL$MinorAllele <- as.character(Collapsed_Info_ALL$MinorAllele)
-                Collapsed_Info_ALL$p.value.NA = pchisq(Collapsed_Info_ALL$S^2/Collapsed_Info_ALL$Var_NoAdj, df=1, lower.tail=FALSE)
-                Collapsed_Info_ALL$p.value = pchisq(Collapsed_Info_ALL$S^2/Collapsed_Info_ALL$Var, df=1, lower.tail=FALSE)
-                Collapsed_Info_ALL$BETA = sign(Collapsed_Info_ALL$S)
-
-
-                Collapsed_Info_ALL <- Collapsed_Info_ALL[,c('SNPID', 'MajorAllele', 'MinorAllele', 'S', 'MAC', 
-                        'Var', 'Var_NoAdj', 'p.value.NA', 'p.value', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het', 'N')]
-                
-        } else if (trait_type == 'continuous'){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all)), S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0,  MajorAllele_ALL = NA, MinorAllele_ALL = NA)
-
-                for(i in 1:n.cohort_tmp){
-                                
-                        if(IsExistSNV.vec[i] == 0){
-                                next
-                        }	
-                        
-                        data1<-Info.list_tmp[[i]]
-                        data1$IDX1<-1:nrow(data1)
-                        data2.org<-merge(Info_ALL, data1, by.x="SNPID", by.y="SNPID", all.x=TRUE)
-                                
-                        #data2.org1<<-data2.org
-                        data2<-data2.org[order(data2.org$IDX),]
-
-                        # IDX: SNPs in SNP_ALL, IDX1: index in each cohort			
-                        IDX<-which(!is.na(data2$IDX1))
-                        IDX1<-data2$IDX1[IDX]
-
-                        # Find Major alleles not be included previously
-                        id1<-intersect(which(is.na(data2$MajorAllele_ALL)), which(!is.na(data2$MajorAllele)))
-                        if(length(id1)> 0){
-                                Info_ALL$MajorAllele_ALL[id1] = data2$MajorAllele[id1]
-                                Info_ALL$MinorAllele_ALL[id1] = data2$MinorAllele[id1]
-                        }
-                        
-                        # Flip the genotypes, major alleles are different
-                        compare<-Info_ALL$MajorAllele_ALL == data2$MajorAllele
-                        id2 = which(!compare)
-                        if(length(id2)> 0){
-                                data2$S[id2] = -data2$S[id2]
-                                n1 = n.vec[i]
-                                
-                                MAC = data2$MAC[IDX]
-                                idx_flip = data2$IDX1[id2]
-                                OUT_Flip = Flip_Genotypes(SMat.list_tmp[[i]][IDX1,IDX1], MAC, n1, idx_flip)
-                                
-                                SMat_1 = OUT_Flip$SMat
-                                data2$MAC[IDX] = OUT_Flip$MAC 	
-                        } else {
-                        
-                                SMat_1 = SMat.list_tmp[[i]][IDX1,IDX1]
-                        
-                        }
-                        
-                        # Update Info
-                        Info_ALL$S_ALL[IDX] = Info_ALL$S_ALL[IDX] + data2$S[IDX]
-                        Info_ALL$Var_ALL_Adj[IDX] = Info_ALL$Var_ALL_Adj[IDX] + data2$Var[IDX]
-                        Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-                        SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
-                }
-
-                Collapsed_Info_ALL <- data.frame(
-                                SNPID = as.character( as.vector(Info_ALL$SNPID)),
-                                MajorAllele = as.character(as.vector(Info_ALL$MajorAllele_ALL)),
-                                MinorAllele = as.character(as.vector(Info_ALL$MinorAllele_ALL)),
-                                S =  Info_ALL$S_ALL,
-                                MAC = Info_ALL$MAC_ALL,
-                                Var = Info_ALL$Var_ALL_Adj
-                )
-                Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
-                Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
-                Collapsed_Info_ALL$MinorAllele <- as.character(Collapsed_Info_ALL$MinorAllele)
-    }
-	return(list(SMat_All=SMat_All, Info_ALL=Collapsed_Info_ALL))
-
-}
-
-
-#Get ancestry specific collapsed SMat and Info
-Get_AncestrySpecific_META_Data_OneSet <- function(SMat.list_tmp, Info.list_tmp, n.vec, IsExistSNV.vec, n.cohort_tmp, ances, Col_Cut = 10, trait_type){
-	SnpID.all<-NULL
-	n_case <- 0 ; n_ctrl <- 0
-	for(i in 1:n.cohort_tmp){
-		if(IsExistSNV.vec[i] == 1){
-			SnpID.all<-union(SnpID.all, Info.list_tmp[[i]]$SNPID)
-			n_case <- Info.list_tmp[[i]]$N_case[1] + n_case
-			n_ctrl <- Info.list_tmp[[i]]$N_ctrl[1] + n_ctrl
-		}
-	}
-	SnpID.all<-unique(SnpID.all)
-	n.all<-length(SnpID.all)
-
-        if(n.all == 0){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL <- data.frame(SNPID = character(0), IDX = integer(0), S_ALL = numeric(0), MAC_ALL = numeric(0), Var_ALL_Adj = numeric(0), Var_ALL_NoAdj = numeric(0), MajorAllele_ALL = character(0), MinorAllele_ALL = character(0), N_case_ALL = integer(0), N_ctrl_ALL = integer(0), N_case_hom_ALL = integer(0), N_ctrl_hom_ALL = integer(0), N_case_het_ALL = integer(0), N_ctrl_het_ALL = integer(0))
-                return(list(Collapsed_SMat_ALL=SMat_All, Collapsed_Info_ALL=Info_ALL))
-        }
-
-	# Get meta-analysis score (S_ALL) and GtG matrix
-        if(trait_type == 'binary'){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all))
-                , S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0, Var_ALL_NoAdj = 0, MajorAllele_ALL = NA, MinorAllele_ALL = NA,
-                N_case_ALL = 0, N_ctrl_ALL = 0, N_case_hom_ALL = 0, N_ctrl_hom_ALL = 0, N_case_het_ALL = 0, N_ctrl_het_ALL = 0)
-
-                
-                for(i in 1:n.cohort_tmp){
-                                
-                        if(IsExistSNV.vec[i] == 0){
-                                next
-                        }	
-                        
-                        data1<-Info.list_tmp[[i]]
-                        data1$IDX1<-1:nrow(data1)
-                        data2.org<-merge(Info_ALL, data1, by.x="SNPID", by.y="SNPID", all.x=TRUE)
-                                
-                        #data2.org1<<-data2.org
-                        data2<-data2.org[order(data2.org$IDX),]
-
-                        # IDX: SNPs in SNP_ALL, IDX1: index in each cohort			
-                        IDX<-which(!is.na(data2$IDX1))
-                        IDX1<-data2$IDX1[IDX]
-
-                        # Find Major alleles not be included previously
-                        id1<-intersect(which(is.na(data2$MajorAllele_ALL)), which(!is.na(data2$MajorAllele)))
-                        if(length(id1)> 0){
-                                Info_ALL$MajorAllele_ALL[id1] = data2$MajorAllele[id1]
-                                Info_ALL$MinorAllele_ALL[id1] = data2$MinorAllele[id1]
-                        }
-                        
-                        # Flip the genotypes, major alleles are different
-                        compare<-Info_ALL$MajorAllele_ALL == data2$MajorAllele
-                        id2 = which(!compare)
-                        if(length(id2)> 0){
-                                data2$S[id2] = -data2$S[id2]
-                                n1 = n.vec[i]
-                                
-                                MAC = data2$MAC[IDX]
-                                idx_flip = data2$IDX1[id2]
-                                OUT_Flip = Flip_Genotypes(SMat.list_tmp[[i]][IDX1,IDX1], MAC, n1, idx_flip)
-                                
-                                SMat_1 = OUT_Flip$SMat
-                                data2$MAC[IDX] = OUT_Flip$MAC 	
-                        } else {
-                        
-                                SMat_1 = SMat.list_tmp[[i]][IDX1,IDX1]
-                        
-                        }
-                        
-                        # Update Info
-                        Info_ALL$S_ALL[IDX] = Info_ALL$S_ALL[IDX] + data2$S[IDX]
-                        Info_ALL$Var_ALL_Adj[IDX] = Info_ALL$Var_ALL_Adj[IDX] + data2$Var[IDX]
-                        Info_ALL$Var_ALL_NoAdj[IDX] = Info_ALL$Var_ALL_NoAdj[IDX] + data2$Var_NoAdj[IDX]
-                        Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-                        Info_ALL$N_case_ALL[IDX] = n_case
-                        Info_ALL$N_ctrl_ALL[IDX] = n_ctrl
-                        Info_ALL$N_case_hom_ALL[IDX] = Info_ALL$N_case_hom_ALL[IDX] + data2$N_case_hom[IDX]
-                        Info_ALL$N_ctrl_hom_ALL[IDX] = Info_ALL$N_ctrl_hom_ALL[IDX] + data2$N_ctrl_hom[IDX]
-                        Info_ALL$N_case_het_ALL[IDX] = Info_ALL$N_case_het_ALL[IDX] + data2$N_case_het[IDX]
-                        Info_ALL$N_ctrl_het_ALL[IDX] = Info_ALL$N_ctrl_het_ALL[IDX] + data2$N_ctrl_het[IDX]
-
-
-                        SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
-                }
-
-                #Run ancestry specific collapsing
-                idx_col <- which(Info_ALL$MAC_ALL <=Col_Cut)
-                
-                if(length(idx_col) > 0){
-                        SNP_list <- list(); SNP_list[[1]] <- idx_col
-                        Collapse_Matrix <- Get_Collabsing(n.all, SNP_list)
-
-                        Collapsed_SMat_ALL <- (Collapse_Matrix %*% SMat_All) %*% t(Collapse_Matrix)
-                        Collapsed_Info_ALL <- data.frame(
-                                SNPID = as.character(c(paste0('ColSNP_', ances), as.vector(Info_ALL$SNPID[-idx_col]))),
-                                MajorAllele = as.character(c('X', as.vector(Info_ALL$MajorAllele_ALL[-idx_col]))),
-                                MinorAllele = as.character(c('Y', as.vector(Info_ALL$MinorAllele_ALL[-idx_col]))),
-                                S = as.vector(Collapse_Matrix %*% Info_ALL$S_ALL),
-                                MAC = as.vector(Collapse_Matrix %*% Info_ALL$MAC_ALL),
-                                Var = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_Adj),
-                                Var_NoAdj = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_NoAdj),
-                                N_case = n_case,
-                                N_ctrl = n_ctrl,
-                                N_case_hom = NA,
-                                N_ctrl_hom = NA,
-                                N_case_het = NA,
-                                N_ctrl_het = NA                               
-                        )
-                        Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
-                        Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
-                        Collapsed_Info_ALL$MinorAllele <- as.character(Collapsed_Info_ALL$MinorAllele)
-                        Collapsed_Info_ALL$p.value.NA = pchisq(Collapsed_Info_ALL$S^2/Collapsed_Info_ALL$Var_NoAdj, df=1, lower.tail=FALSE)
-                        Collapsed_Info_ALL$p.value = pchisq(Collapsed_Info_ALL$S^2/Collapsed_Info_ALL$Var, df=1, lower.tail=FALSE)
-                        Collapsed_Info_ALL$BETA = sign(Collapsed_Info_ALL$S)
-
-
-                        Collapsed_Info_ALL <- Collapsed_Info_ALL[,c('SNPID', 'MajorAllele', 'MinorAllele', 'S', 'MAC', 
-                        'Var', 'Var_NoAdj', 'p.value.NA', 'p.value', 'BETA', 'N_case', 'N_ctrl', 'N_case_hom', 'N_ctrl_hom', 'N_case_het', 'N_ctrl_het')]
-                }
-        } else if (trait_type == 'continuous'){
-                SMat_All<-sparseMatrix(i=integer(0), j=integer(0), x = numeric(0), dims=c(n.all, n.all))
-                Info_ALL<-data.frame(SNPID = SnpID.all, IDX=seq_len(length(SnpID.all)), S_ALL=0, MAC_ALL=0, Var_ALL_Adj=0,  MajorAllele_ALL = NA, MinorAllele_ALL = NA)
-
-                for(i in 1:n.cohort_tmp){
-                                
-                        if(IsExistSNV.vec[i] == 0){
-                                next
-                        }	
-                        
-                        data1<-Info.list_tmp[[i]]
-                        data1$IDX1<-1:nrow(data1)
-                        data2.org<-merge(Info_ALL, data1, by.x="SNPID", by.y="SNPID", all.x=TRUE)
-                                
-                        #data2.org1<<-data2.org
-                        data2<-data2.org[order(data2.org$IDX),]
-
-                        # IDX: SNPs in SNP_ALL, IDX1: index in each cohort			
-                        IDX<-which(!is.na(data2$IDX1))
-                        IDX1<-data2$IDX1[IDX]
-
-                        # Find Major alleles not be included previously
-                        id1<-intersect(which(is.na(data2$MajorAllele_ALL)), which(!is.na(data2$MajorAllele)))
-                        if(length(id1)> 0){
-                                Info_ALL$MajorAllele_ALL[id1] = data2$MajorAllele[id1]
-                                Info_ALL$MinorAllele_ALL[id1] = data2$MinorAllele[id1]
-                        }
-                        
-                        # Flip the genotypes, major alleles are different
-                        compare<-Info_ALL$MajorAllele_ALL == data2$MajorAllele
-                        id2 = which(!compare)
-                        if(length(id2)> 0){
-                                data2$S[id2] = -data2$S[id2]
-                                n1 = n.vec[i]
-                                
-                                MAC = data2$MAC[IDX]
-                                idx_flip = data2$IDX1[id2]
-                                OUT_Flip = Flip_Genotypes(SMat.list_tmp[[i]][IDX1,IDX1], MAC, n1, idx_flip)
-                                
-                                SMat_1 = OUT_Flip$SMat
-                                data2$MAC[IDX] = OUT_Flip$MAC 	
-                        } else {
-                        
-                                SMat_1 = SMat.list_tmp[[i]][IDX1,IDX1]
-                        
-                        }
-                        
-                        # Update Info
-                        Info_ALL$S_ALL[IDX] = Info_ALL$S_ALL[IDX] + data2$S[IDX]
-                        Info_ALL$Var_ALL_Adj[IDX] = Info_ALL$Var_ALL_Adj[IDX] + data2$Var[IDX]
-                        Info_ALL$MAC_ALL[IDX] = Info_ALL$MAC_ALL[IDX] + data2$MAC[IDX]
-                        SMat_All[IDX, IDX] = SMat_All[IDX, IDX] + SMat_1
-                }
-
-                #Run ancestry specific collapsing
-                idx_col <- which(Info_ALL$MAC_ALL <=Col_Cut)
-                
-                if(length(idx_col) > 0){
-                        SNP_list <- list(); SNP_list[[1]] <- idx_col
-                        Collapse_Matrix <- Get_Collabsing(n.all, SNP_list)
-
-                        Collapsed_SMat_ALL <- (Collapse_Matrix %*% SMat_All) %*% t(Collapse_Matrix)
-                        Collapsed_Info_ALL <- data.frame(
-                                SNPID = as.character(c(paste0('ColSNP_', ances), as.vector(Info_ALL$SNPID[-idx_col]))),
-                                MajorAllele = as.character(c('X', as.vector(Info_ALL$MajorAllele_ALL[-idx_col]))),
-                                MinorAllele = as.character(c('Y', as.vector(Info_ALL$MinorAllele_ALL[-idx_col]))),
-                                S = as.vector(Collapse_Matrix %*% Info_ALL$S_ALL),
-                                MAC = as.vector(Collapse_Matrix %*% Info_ALL$MAC_ALL),
-                                Var = as.vector(Collapse_Matrix %*% Info_ALL$Var_ALL_Adj)
-                        )
-                        Collapsed_Info_ALL$SNPID <- as.character(Collapsed_Info_ALL$SNPID)
-                        Collapsed_Info_ALL$MajorAllele <- as.character(Collapsed_Info_ALL$MajorAllele)
-                        Collapsed_Info_ALL$MinorAllele <- as.character(Collapsed_Info_ALL$MinorAllele)
-                }
-        }
-	return(list(Collapsed_SMat_ALL=Collapsed_SMat_ALL, Collapsed_Info_ALL=Collapsed_Info_ALL))
-
-}
 
 #########
 #
@@ -1174,81 +849,10 @@ Get_META_Data_OneSet<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.c
 
 }
 
-Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, Col_Cut = 10, GC_cutoff = 0.05, 
-        r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile = NULL, maf_cutoff){
-        # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
-        # obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
-
-        Is_ancestry =  FALSE
-        if (is.vector(ancestry) & n.cohort > 1){
-                Is_ancestry=TRUE
-                cat("[MetaSAIGE Log Helper] Ancestry vector provided. Processing for ancestry-specific data aggregation.\n")
-                SMat.list_ans<-list()
-                Info.list_ans<-list()
-                n.vec_ans<-NULL
-                IsExistSNV.vec_ans<-NULL
-                        ans_count=1
-                for(ances in unique(ancestry)){
-                        cat(paste0("[MetaSAIGE Log Helper] Processing for ancestry group: ", ances, "\n"))
-                        idxs = which(ancestry == ances)
-                                SMat.list_tmp = SMat.list[idxs]
-                                Info.list_tmp = Info.list[idxs]
-                                n.vec_temp = n.vec[idxs]
-                                IsExistSNV.vec_temp = IsExistSNV.vec[idxs]
-                                n.cohort_tmp=length(idxs)
-
-                                cat("[MetaSAIGE Log Helper] Calling Get_AncestrySpecific_META_Data_OneSet_NoCol for ancestry: ", ances, " with ", n.cohort_tmp, " cohort(s).\n")
-                                pop_obj = Get_AncestrySpecific_META_Data_OneSet_NoCol(SMat.list_tmp, Info.list_tmp, n.vec_temp, IsExistSNV.vec_temp, n.cohort_tmp, ances,  trait_type)
-                                
-                                cat("[MetaSAIGE Log Helper] Output from Get_AncestrySpecific_META_Data_OneSet_NoCol for ancestry: ", ances, "\n")
-                                cat("  Info_ALL dimensions: ", ifelse(is.null(pop_obj$Info_ALL), "NULL", paste(dim(pop_obj$Info_ALL), collapse="x")), "\n")
-                                if (!is.null(pop_obj$Info_ALL) && nrow(pop_obj$Info_ALL) > 0) {
-                                        cat("  Head of Info_ALL:\n")
-                                        print(head(pop_obj$Info_ALL))
-                                }
-                                cat("  SMat_All dimensions: ", ifelse(is.null(pop_obj$SMat_All), "NULL", paste(dim(pop_obj$SMat_All), collapse="x")), "\n")
-
-                                #Get_META_Data_OneSet(SMat.list_tmp , Info.list_tmp, n.vec_temp, IsExistSNV.vec_temp,  length(idxs), GC_cutoff, trait_type)
-
-                                idx_col_cut = which(pop_obj$Info_ALL$MAC <= Col_Cut)
-                                pop_obj$Info_ALL$SNPID_ORG = pop_obj$Info_ALL$SNPID
-                                if(length(idx_col_cut) > 0){
-                                        pop_obj$Info_ALL$SNPID[idx_col_cut] = sprintf("%s_ANCES_%s", pop_obj$Info_ALL$SNPID_ORG[idx_col_cut], as.character(ances))
-                                }
-
-                                SMat.list_ans[[ans_count]] = pop_obj$SMat_All
-                                Info.list_ans[[ans_count]] = pop_obj$Info_ALL
-                                n.vec_ans<-c(n.vec_ans, sum(n.vec_temp))
-                                IsExistSNV.vec_ans<-c(IsExistSNV.vec_ans, max(IsExistSNV.vec_temp)) # O or 1
-                                ans_count = ans_count+1
-                }
-                cat("[MetaSAIGE Log Helper] Calling final Get_META_Data_OneSet after ancestry processing.\n")
-                cat("  Input SMat.list_ans length: ", length(SMat.list_ans), "\n")
-                cat("  Input Info.list_ans length: ", length(Info.list_ans), "\n")
-                cat("  Input n.vec_ans: ", paste(n.vec_ans, collapse=", "), "\n")
-                obj = Get_META_Data_OneSet(SMat.list_ans, Info.list_ans, n.vec_ans, IsExistSNV.vec_ans,  n.cohort=ans_count-1, GC_cutoff=GC_cutoff, trait_type=trait_type)
-                cat("[MetaSAIGE Log Helper] Output from final Get_META_Data_OneSet (after ancestry):\n")
-                cat("  obj$Info_ALL dimensions: ", ifelse(is.null(obj$Info_ALL), "NULL", paste(dim(obj$Info_ALL), collapse="x")), "\n")
-                if (!is.null(obj$Info_ALL) && nrow(obj$Info_ALL) > 0) {
-                        cat("  Head of obj$Info_ALL:\n")
-                        print(head(obj$Info_ALL))
-                }
-                cat("  obj$SMat_All dimensions: ", ifelse(is.null(obj$SMat_All), "NULL", paste(dim(obj$SMat_All), collapse="x")), "\n")
-
-        } else {
-                cat("[MetaSAIGE Log Helper] No ancestry vector provided. Calling Get_META_Data_OneSet directly.\n")
-                cat("  Input SMat.list length: ", length(SMat.list), "\n")
-                cat("  Input Info.list length: ", length(Info.list), "\n")
-                cat("  Input n.vec: ", paste(n.vec, collapse=", "), "\n")
-                obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
-                cat("[MetaSAIGE Log Helper] Output from Get_META_Data_OneSet (no ancestry):\n")
-                cat("  obj$Info_ALL dimensions: ", ifelse(is.null(obj$Info_ALL), "NULL", paste(dim(obj$Info_ALL), collapse="x")), "\n")
-                if (!is.null(obj$Info_ALL) && nrow(obj$Info_ALL) > 0) {
-                        cat("  Head of obj$Info_ALL:\n")
-                        print(head(obj$Info_ALL))
-                }
-                cat("  obj$SMat_All dimensions: ", ifelse(is.null(obj$SMat_All), "NULL", paste(dim(obj$SMat_All), collapse="x")), "\n")
-        }
+Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec, n.cohort, Col_Cut = 10, GC_cutoff = 0.05,
+        r.all = c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1), weights.beta = c(1, 25), IsGet_Info_ALL = TRUE,
+        trait_type, groupfile = NULL, maf_cutoff){
+        obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec, n.cohort, GC_cutoff, trait_type)
 
 
         #Filtering out SNPs based on the annotation from groupfile
@@ -1296,30 +900,25 @@ Run_Meta_OneSet_Helper<-function(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n
 
 }
 
-Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1),  weights.beta=c(1,25), IsGet_Info_ALL = True, ancestry = NULL, trait_type, groupfile = NULL, maf_cutoff, pval_cutoff = 0.01){
-        # Col_Cut = 10; r.all= c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1);  weights.beta=c(1,25)
-        # obj = Get_META_Data_OneSet(SMat.list, Info.list, n.vec, IsExistSNV.vec,  n.cohort, GC_cutoff, trait_type)
+Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all = c(0, 0.1^2, 0.2^2, 0.3^2, 0.5^2, 0.5, 1), weights.beta = c(1, 25), IsGet_Info_ALL = TRUE,
+        trait_type, groupfile = NULL, maf_cutoff, pval_cutoff = 0.01){
 
         obj = OUT_Meta$obj
 
-
-        #Filtering out SNPs based on the annotation from groupfile
         if(!is.null(groupfile)){
                 idx = which(obj$Info_ALL$SNPID %in% groupfile$var)
                 obj$Info_ALL = as.data.frame(obj$Info_ALL)[idx,]
                 obj$SMat_All = Matrix(as.matrix(obj$SMat_All)[idx,idx], sparse = TRUE)
-                
+
                 OUT_Meta$S_w = OUT_Meta$S_w[idx]
                 OUT_Meta$Phi_w1 = Matrix(as.matrix(OUT_Meta$Phi_w1[idx, idx]))
                 OUT_Meta$Phi_w2 = OUT_Meta$Phi_w2[idx]
         }
 
-        #Filtering out SNPs based on the MAF cutoff
         n_all = obj$Info_ALL$N_ALL_LD
         MAC = obj$Info_ALL$MAC_ALL
         MAF = MAC / n_all / 2
 
-        
         if (!is.null(maf_cutoff) && maf_cutoff < 0.5){
                 idx_cutoff = which(MAF <= maf_cutoff)
                 if(length(idx_cutoff) > 0){
@@ -1341,73 +940,33 @@ Run_Meta_OneSet<-function(OUT_Meta, n.vec, Col_Cut, r.all= c(0, 0.1^2, 0.2^2, 0.
                 stop("No variants left after filtering")
         }
 
-        # Collapsing
-        # Implement ancestry specific collapsing
-        #	
+        # Collapse ultra-rare variants (MAC <= Col_Cut) into a single pseudo-variant.
+        Collapse_Matrix = NULL
+        SNP_list = list()
+        Num_Collapsed = 0
+        idx_col = which(MAC <= Col_Cut)
 
-        Collapse_Matrix=NULL
-        SNP_list<-list();
-        Num_Collapsed=0
-        Collapse_Ancestry=NULL
-        idx_col<-which(MAC <=Col_Cut)
-
-        if(is.vector(ancestry)){
-                cat('ancestry specific collapsing is applied \n')
-                ans_count=1
-                for(ances in unique(ancestry)){
-                        # SNP_ID has ID_surfix for the ancestry specific ultra rare variants. 
-                        ID_surfix = sprintf("_ANCES_%s", as.character(ances))
-                        idx_col2 = which(grepl(ID_surfix, obj$Info_ALL$SNPID))
-
-                        if(length(idx_col2)>0){
-                                Num_Collapsed = Num_Collapsed+1
-                                SNP_list[[Num_Collapsed]]<-idx_col2
-                                Collapse_Ancestry = c(Collapse_Ancestry, ances)
-                        }
-                }
-
-        } else {
-                if(length(idx_col)>0){
-                        SNP_list[[1]]<-idx_col
-                        Num_Collapsed=1
-                        Collapse_Ancestry=1
-                }
-
-        }
-
-
-
-        if(length(idx_col)> 0){
-                SNP_list<-list(); SNP_list[[1]]<-idx_col
-                #nSNP1<<-nSNP; SNP_list1<<-SNP_list
+        if(length(idx_col) > 0){
+                SNP_list[[1]] = idx_col
+                Num_Collapsed = 1
                 Collapse_Matrix = Get_Collabsing(nSNP, SNP_list)
                 S_M_C = Collapse_Matrix %*% OUT_Meta$S_w
 
                 Phi_C_w1 = Collapse_Matrix %*% OUT_Meta$Phi_w1 %*% t(Collapse_Matrix)
                 Phi_C_w2 = Collapse_Matrix %*% OUT_Meta$Phi_w2
                 Phi_C = Phi_C_w1 - Phi_C_w2 %*% t(Phi_C_w2)
-
-
         } else {
                 S_M_C = OUT_Meta$S_w
                 Phi_C = OUT_Meta$Phi_w1 - OUT_Meta$Phi_w2 %*% t(OUT_Meta$Phi_w2)
         }
 
-
-
-        # Added (2033-07-29)
-        # When there is only one SNP
-        if(length(S_M_C)==1){
-                test.stat<-S_M_C[1]^2/Phi_C[1,1]
-                p.value<-pchisq(test.stat, df=1, lower.tail = FALSE)
-                out_Meta<-list(p.value=p.value, test.stat=test.stat) 
+        if(length(S_M_C) == 1){
+                test.stat <- S_M_C[1]^2 / Phi_C[1, 1]
+                p.value   <- pchisq(test.stat, df = 1, lower.tail = FALSE)
+                out_Meta  <- list(p.value = p.value, test.stat = test.stat)
         } else {
-                # Bug fix (2022-07-24, SLEE). previously collapsing wasn't applied. 
-                # out_Meta<-SKAT:::SKAT_META_Optimal(Score=cbind(S_M_C), Phi=Phi_C, r.all=r.all, Score.Resampling=NULL)
-
-#stop('Not computing SKAT')
-                out_Meta<-SKAT:::Met_SKAT_Get_Pvalue_Hybrid(Score=cbind(S_M_C), method = 'davies', Phi=Phi_C, r.corr=r.all, pval_cutoff=pval_cutoff)
-		
+                out_Meta <- SKAT:::Met_SKAT_Get_Pvalue_Hybrid(Score = cbind(S_M_C), method = 'davies',
+                                                             Phi = Phi_C, r.corr = r.all, pval_cutoff = pval_cutoff)
         }
         out_Meta$nSNP = length(S_M_C)
         if(IsGet_Info_ALL){

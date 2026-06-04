@@ -1,0 +1,3 @@
+CHR	GENE	Group	Pval	MAC	#Rare Variants	#Ultra Rare Variants	P-value of Collapsed Ultra Rare
+2	TTN	missense_lof_synonymous_0.01	0.347307034421392	88004	1024	0	NA
+2	TTN	Cauchy	0.347307034421392	NA	NA	NA	NA

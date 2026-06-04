@@ -1,0 +1,40 @@
+inst/doc
+/doc/
+/Meta/
+.Rbuildignore
+meta-saige_github.tar.gz
+meta-saige_binary_fixed.tar.gz
+meta-saige_flipped.tar.gz
+meta-saige_flip_fixed.tar.gz
+meta-saige_final.tar.gz
+meta-saige_test.tar.gz
+
+# --- Gbased branch: progress / tooling / AI artifacts that should never be pushed ---
+# Refactor narrative / progress checkpoints
+REFACTOR_SUMMARY.md
+PUSH_TO_GBASED.md
+
+# Claude Code / agent project config and skills
+.claude/
+CLAUDE.md
+.cursor/
+CURSOR.md
+.aider*
+
+# Validation harness internals (compare pre- vs post-refactor; not for end users)
+test/MetaSAIGE_original.R
+test/test_old_per_mask_vs_new_multi.sh
+test/old_multi_mask.txt
+test/new_multi_mask.txt
+
+# Standard R + editor noise
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+.DS_Store
+*.swp
+*~
+*.bak
+*.tmp
